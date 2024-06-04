@@ -1,4 +1,5 @@
-﻿using GGMLSharp;
+﻿using Converter.Abstractions;
+using GGMLSharp;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using static Converter.Safetensors.SafetensorsLoader;
@@ -6,8 +7,8 @@ using static GGMLSharp.Structs;
 
 namespace Converter.Safetensors
 {
-	public unsafe class Qwen
-	{
+	public unsafe class Qwen : ISafeTensorConverter
+    {
 		public void Convert(string safetensorsPath, string outputFileName, bool WriteToFileUsingStream = true)
 		{
 			ConfigLoader configLoader = new ConfigLoader();

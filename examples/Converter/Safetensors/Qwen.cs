@@ -8,18 +8,8 @@ namespace Converter.Safetensors
 {
 	public unsafe class Qwen
 	{
-		public void Convert(string modelName, string outputFileName, bool WriteToFileUsingStream = true)
+		public void Convert(string safetensorsPath, string outputFileName, bool WriteToFileUsingStream = true)
 		{
-			gguf_init_params @params = new gguf_init_params
-			{
-				ctx = null,
-				no_alloc = true
-			};
-
-			gguf_context* context = Native.gguf_init_from_file(modelName, @params);
-
-			string safetensorsPath = @"D:\DeepLearning\llama\models\qwen\1_5";
-
 			ConfigLoader configLoader = new ConfigLoader();
 			configLoader.LoadFromFolder(safetensorsPath);
 			gguf_context* gguf_ctx = Native.gguf_init_empty();

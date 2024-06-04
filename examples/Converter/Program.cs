@@ -10,7 +10,7 @@
 			// Ckpt cannot work, it's a different format.
 
 			new Safetensors.Llama().Convert(@".\models\open_llama", "open_llama.gguf");
-			//new Safetensors.Qwen().Convert(@".\models\qwen\1_5\","qwen.gguf");
+			//new Safetensors.Qwen().Convert(@".\models\qwen\1_5","qwen.gguf");
 
 		}
 	}

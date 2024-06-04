@@ -865,9 +865,9 @@ namespace GGMLSharp
 		[StructLayout(LayoutKind.Sequential)]
 		public struct gguf_kv
 		{
-			gguf_str key;
-			gguf_type type;
-			gguf_value value;
+			public gguf_str key;
+			public gguf_type type;
+			public gguf_value value;
 		};
 
 		[StructLayout(LayoutKind.Sequential)]
@@ -880,7 +880,7 @@ namespace GGMLSharp
 			public IntPtr data;
 		};
 
-		[StructLayout(LayoutKind.Explicit)]
+		[StructLayout(LayoutKind.Explicit,Size =24)]
 		public struct gguf_value
 		{
 			[FieldOffset(0)] public uint8_t uint8;
@@ -1044,7 +1044,7 @@ namespace GGMLSharp
 		public delegate ggml_backend_buffer_type_t get_default_buffer_type(ggml_backend_t backend);
 
 		/// <summary>
-		/// (optional) asynchronous tensor data access
+		/// ( ) asynchronous tensor data access
 		/// </summary>
 		/// <param name="backend"></param>
 		/// <param name="tensor"></param>
@@ -1056,7 +1056,7 @@ namespace GGMLSharp
 		public delegate void cpy_tensor_async(ggml_backend_t backend_src, ggml_backend_t backend_dst, ggml_tensor* src, ggml_tensor* dst);
 
 		/// <summary>
-		/// (optional) complete all pending operations
+		/// ( ) complete all pending operations
 		/// </summary>
 		/// <param name="backend"></param>
 		public delegate void synchronize(ggml_backend_t backend);
@@ -1100,7 +1100,7 @@ namespace GGMLSharp
 		public delegate void offload_op(ggml_backend_t backend, ggml_tensor* op);
 
 		/// <summary>
-		/// (optional) event synchronization
+		/// ( ) event synchronization
 		/// </summary>
 		/// <param name="backend"></param>
 		/// <returns></returns>
@@ -1167,12 +1167,12 @@ namespace GGMLSharp
 			// buffer allocation
 			public get_default_buffer_type get_default_buffer_type;
 
-			// (optional) asynchronous tensor data access
+			// ( ) asynchronous tensor data access
 			public set_tensor_async set_tensor_async;
 			public get_tensor_async get_tensor_async;
 			public cpy_tensor_async cpy_tensor_async;
 
-			// (optional) complete all pending operations
+			// ( ) complete all pending operations
 			public synchronize synchronize;
 
 			// compute graph with a plan (not used currently)
@@ -1192,7 +1192,7 @@ namespace GGMLSharp
 			// even if the weight has to be copied from the CPU temporarily
 			public offload_op offload_op;
 
-			// (optional) event synchronization
+			// ( ) event synchronization
 			public event_new event_new;
 			public event_free event_free;
 

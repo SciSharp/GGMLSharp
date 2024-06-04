@@ -27,16 +27,16 @@ namespace GGMLSharp
 		public extern static ggml_fp16_t ggml_fp32_to_fp16(float x);
 
 		[DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-		public extern static ggml_bf16_t ggml_fp32_to_bf16(float x);
+		public extern static uint16_t ggml_fp32_to_bf16(float x);
 
 		[DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-		public extern static float ggml_bf16_to_fp32(ggml_bf16_t x);  // consider just doing << 16
+		public extern static float ggml_bf16_to_fp32(uint16_t x);  // consider just doing << 16
 
 		[DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-		public extern static void ggml_bf16_to_fp32_row(ggml_bf16_t* x, float* y, int64_t n);
+		public extern static void ggml_bf16_to_fp32_row(uint16_t* x, float* y, int64_t n);
 
 		[DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-		public extern static void ggml_fp32_to_bf16_row(float* x, ggml_bf16_t* y, int64_t n);
+		public extern static void ggml_fp32_to_bf16_row(float* x, uint16_t* y, int64_t n);
 
 		[DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
 		public extern static void ggml_fp16_to_fp32_row(ggml_fp16_t* x, float* y, int64_t n);
@@ -213,7 +213,7 @@ namespace GGMLSharp
 		public extern static size_t ggml_get_max_tensor_size(ggml_context* ctx);
 
 		[DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-		public extern static ggml_tensor* ggml_new_tensor(ggml_context* ctx, ggml_type type, int n_dims, int64_t* ne);
+		public extern static ggml_tensor* ggml_new_tensor(ggml_context* ctx, ggml_type type, int n_dims, int64_t[] ne);
 
 		[DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
 		public extern static ggml_tensor* ggml_new_tensor_1d(ggml_context* ctx, ggml_type type, int64_t ne0);
@@ -925,7 +925,7 @@ namespace GGMLSharp
 		/// </summary>
 		/// <param name="ctx"></param>
 		/// <param name="a"></param>
-		/// <param name="mask">optional</param>
+		/// <param name="mask"> </param>
 		/// <param name="pos">required when max_bias > 0.0f</param>
 		/// <param name="scale"></param>
 		/// <param name="max_bias">0.0f for no ALiBi</param>
@@ -1439,14 +1439,20 @@ namespace GGMLSharp
 		[DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
 		public extern static void* gguf_get_data(gguf_context* ctx);
 
+
 		[DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
 		public extern static int gguf_get_n_kv(gguf_context* ctx);
 
 		[DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-		public extern static int gguf_find_key(gguf_context* ctx, string key);
+		public extern static bool gguf_find_key(gguf_context* ctx, string key);
 
-		[DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-		public extern static byte* gguf_get_key(gguf_context* ctx, int key_id);
+
+		public static string gguf_get_key(gguf_context* ctx, int key_id)
+		{
+			return Marshal.PtrToStringAnsi(gguf_get_key_native(ctx, key_id));
+			[DllImport(DllName, EntryPoint = "gguf_get_key", CallingConvention = CallingConvention.Cdecl)]
+			extern static IntPtr gguf_get_key_native(gguf_context* ctx, int key_id);
+		}
 
 		[DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
 		public extern static gguf_type gguf_get_kv_type(gguf_context* ctx, int key_id);
@@ -1457,8 +1463,13 @@ namespace GGMLSharp
 		[DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
 		public extern static void* gguf_get_arr_data(gguf_context* ctx, int key_id);
 
-		[DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-		public extern static byte* gguf_get_arr_str(gguf_context* ctx, int key_id, int i);
+		public static string gguf_get_arr_str(gguf_context* ctx, int key_id, int i)
+		{
+			return Marshal.PtrToStringAnsi(gguf_get_arr_str_native(ctx, key_id, i));
+			[DllImport(DllName, EntryPoint = "gguf_get_arr_str", CallingConvention = CallingConvention.Cdecl)]
+			extern static IntPtr gguf_get_arr_str_native(gguf_context* ctx, int key_id, int i);
+		}
+
 
 		[DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
 		public extern static int gguf_get_arr_n(gguf_context* ctx, int key_id);
@@ -1570,13 +1581,18 @@ namespace GGMLSharp
 		public extern static void gguf_set_val_str(gguf_context* ctx, string key, string val);
 
 		[DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-		public extern static void gguf_set_arr_data(gguf_context* ctx, string key, gguf_type type, void* data, int n);
+		public extern static void gguf_set_arr_data(gguf_context* ctx, string key, gguf_type type, IntPtr data, int n);
 
 		[DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-		public extern static void gguf_set_arr_str(gguf_context* ctx, string key, char** data, int n);
+		//public extern static void gguf_set_arr_str(gguf_context* ctx, string key, IntPtr data, int n);
+		public extern static void gguf_set_arr_str(gguf_context* ctx, string key, string[] data, int n);
 
 		[DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-		//[LibraryImport(DllName, StringMarshalling = StringMarshalling.Utf8)]
+		//public extern static void gguf_set_arr_str(gguf_context* ctx, string key, IntPtr data, int n);
+		public extern static void gguf_set_arr_str(gguf_context* ctx, string key, IntPtr[] data, int n);
+
+
+		[DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
 		public static extern void gguf_set_kv(gguf_context* ctx, gguf_context* src);
 
 		[DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
@@ -1614,6 +1630,9 @@ namespace GGMLSharp
 
 		[DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
 		public extern static bool ggml_cpu_has_avx512_vnni();
+
+		[DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
+		public extern static bool ggml_cpu_has_avx512_bf16();
 
 		[DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
 		public extern static bool ggml_cpu_has_fma();

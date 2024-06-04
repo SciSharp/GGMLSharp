@@ -6,7 +6,7 @@ using static GGMLSharp.Structs;
 
 namespace Converter
 {
-	internal class SafeTensorReader
+	internal class CommonSafeTensorReaderDemo
 	{
 		class CommonTensor
 		{
@@ -98,7 +98,7 @@ namespace Converter
 			}
 		}
 
-		private static byte[] ReadByteFromFile(string inputFileName, long bodyPosition, int offset, int size)
+		private static byte[] ReadByteFromFile(string inputFileName, long bodyPosition, long offset, int size)
 		{
 			using (FileStream stream = File.OpenRead(inputFileName))
 			{
@@ -112,8 +112,15 @@ namespace Converter
 
 		public unsafe void ConvertSafetensorsToGguf(string inputFileName, string outputFileName)
 		{
+			// If want to use stream to write file, set WriteToFileUsingStream to true.
+			// Using gguf_write_to_file to write gguf file will read all tensors and there all data in to memory before writing file.
+			// Memory usage is about 2 times of the file size. If the file is too large, it will cause out of memory.
+			// Using stream to write file will avoid this problem. Memory usage is about 2 times of the largest tensor size, but not all tensors.
+			bool WriteToFileUsingStream = true;
+
 			List<CommonTensor> tensors = ReadTensorInfoFromFile(inputFileName, out long bPosition);
 			gguf_context* g_ctx = Native.gguf_init_empty();
+
 			for (int i = 0; i < tensors.Count; i++)
 			{
 				ggml_init_params @params = new ggml_init_params
@@ -123,51 +130,62 @@ namespace Converter
 					no_alloc = true
 				};
 				ggml_context* ctx = Native.ggml_init(@params);
-				byte[] dest = ReadByteFromFile(inputFileName, (int)bPosition, (int)tensors[i].offset[0], (int)tensors[i].offset[1] - (int)tensors[i].offset[0]);
-				fixed (long* ne = tensors[i].shape)
-				{
-					ggml_tensor* ggml_tensor = Native.ggml_new_tensor(ctx, tensors[i].dtype, tensors[i].shape.Length, ne);
-					Native.ggml_set_name(ggml_tensor, tensors[i].name);
-					//ggml_tensor->data = Marshal.UnsafeAddrOfPinnedArrayElement(dest, 0);
-					Native.gguf_add_tensor(g_ctx, ggml_tensor);
-				}
+				int length = (int)(tensors[i].offset[1] - tensors[i].offset[0]);
+				
+				ggml_tensor* ggml_tensor = Native.ggml_new_tensor(ctx, tensors[i].dtype, tensors[i].shape.Length, tensors[i].shape);
+				Native.ggml_set_name(ggml_tensor, tensors[i].name);
 
+				// If want to use stream to write file, we can read each tensors data while writing file, and free them after writing immediately.
+				if (!WriteToFileUsingStream)
+				{
+					byte[] dest = ReadByteFromFile(inputFileName, bPosition, tensors[i].offset[0], length);
+					ggml_tensor->data = Marshal.AllocHGlobal(length);
+					Marshal.Copy(dest, 0, ggml_tensor->data, length);
+				}
+				Native.gguf_add_tensor(g_ctx, ggml_tensor);
 				Native.ggml_free(ctx);
+				GC.Collect();
 			}
 
-			Native.gguf_write_to_file(g_ctx, outputFileName, true);
 
-			byte[] bytes = File.ReadAllBytes(outputFileName);
-			int totalSize = bytes.Length;
-			for (int i = 0; i < (int)g_ctx->header.n_tensors; ++i)
+			if (!WriteToFileUsingStream)
 			{
-				gguf_tensor_info* info = &g_ctx->infos[i];
-				string name = Marshal.PtrToStringUTF8(info->name.data);
-				Console.WriteLine($"{name} is doing, current total byte is {totalSize}");
+				Native.gguf_write_to_file(g_ctx, outputFileName, false);
+			}
+			else
+			{
+				Native.gguf_write_to_file(g_ctx, outputFileName, true);
 
-				CommonTensor tensor = tensors.Find(x => x.name == name);
-				long size = Math.Max(info->size, (int)g_ctx->alignment);
-				long _offset = tensor.offset[1] - tensor.offset[0];
-
-				long size_pad = Native.GGML_PAD((int)size, (int)g_ctx->alignment);
-
-				byte[] data = ReadByteFromFile(inputFileName, (int)bPosition, (int)tensor.offset[0], (int)size);
-				totalSize = totalSize + (int)size_pad;
-				if (size_pad != size)
+				byte[] bytes = File.ReadAllBytes(outputFileName);
+				int totalSize = bytes.Length;
+				for (int i = 0; i < (int)g_ctx->header.n_tensors; ++i)
 				{
-					for (long j = 0; j < size_pad - size; ++j)
+					gguf_tensor_info* info = &g_ctx->infos[i];
+					string name = Marshal.PtrToStringUTF8(info->name.data);
+					Console.WriteLine($"{name} is doing, current total byte is {totalSize}");
+
+					CommonTensor tensor = tensors.Find(x => x.name == name);
+					long size = Math.Max(info->size, (int)g_ctx->alignment);
+					long _offset = tensor.offset[1] - tensor.offset[0];
+
+					long size_pad = Native.GGML_PAD((int)size, (int)g_ctx->alignment);
+
+					byte[] data = ReadByteFromFile(inputFileName, (int)bPosition, (int)tensor.offset[0], (int)size);
+					totalSize = totalSize + (int)size_pad;
+					if (size_pad != size)
 					{
-						data = data.Concat(new byte[] { 0 }).ToArray();
+						for (long j = 0; j < size_pad - size; ++j)
+						{
+							data = data.Concat(new byte[] { 0 }).ToArray();
+						}
 					}
-				}
-				//byte[] data = new byte[size];
-				//Marshal.Copy(info->data, data, 0, (int)size);
 
-				using (FileStream stream = new FileStream(outputFileName, FileMode.Append, FileAccess.Write))
-				{
-					stream.Write(data, 0, data.Length);
+					using (FileStream stream = new FileStream(outputFileName, FileMode.Append, FileAccess.Write))
+					{
+						stream.Write(data, 0, data.Length);
+					}
+					GC.Collect();
 				}
-				GC.Collect();
 			}
 
 			Native.gguf_free(g_ctx);

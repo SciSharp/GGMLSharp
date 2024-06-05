@@ -132,7 +132,6 @@ namespace Converter.Safetensors
 				ggml_context* ggml_context = Native.ggml_init(ggml_params);
 				long offeset = tensor.offset[0];
 				int length = (int)(tensor.offset[1] - tensor.offset[0]);
-				//byte[] tensorBytes = SafetensorsLoader.ReadByteFromFile(tensor);
 
 				string name = SafetensorsLoader.TensorNameTrans_FromSafetensorsToGguf(tensor.name);
 
@@ -200,11 +199,9 @@ namespace Converter.Safetensors
 
 						}
 					}
-
 					ggml_tensor->data = Marshal.AllocHGlobal(length);
 					Marshal.Copy(data, 0, ggml_tensor->data, length);
 				}
-				//ggml_tensor = Native.ggml_transpose(ggml_context, ggml_tensor);
 				if (name == "token_embd.weight" || name == "output.weight" || Regex.IsMatch(name, @"blk.\d+.ffn_(gate|down|up).weight"))
 				{
 					ggml_tensor = Native.ggml_transpose(ggml_context, ggml_tensor);
@@ -225,10 +222,8 @@ namespace Converter.Safetensors
 			{
 				Console.WriteLine("Write to file using stream.");
 				string inputFileName = Path.Combine(safetensorsPath, "model.safetensors");
-				//string outputFileName = "model.gguf";
 
 				Native.gguf_write_to_file(gguf_ctx, outputFileName, true);
-
 				byte[] bytes = File.ReadAllBytes(outputFileName);
 				long totalSize = bytes.Length;
 				for (int i = 0; i < (int)gguf_ctx->header.n_tensors; ++i)
@@ -318,8 +313,6 @@ namespace Converter.Safetensors
 								float* data_fp32 = (float*)Marshal.AllocHGlobal(data.Length * 2).ToPointer();
 
 								Native.ggml_bf16_to_fp32_row(data_f16, data_fp32, data.Length / 2);
-
-								//ushort* data_fp16 = (ushort*)Marshal.AllocHGlobal(data.Length).ToPointer();
 								Native.ggml_fp32_to_fp16_row(data_fp32, data_f16, data.Length / 2);
 
 								List<byte> output = new List<byte>();
@@ -329,7 +322,6 @@ namespace Converter.Safetensors
 								}
 								Marshal.FreeHGlobal((IntPtr)data_f16);
 								Marshal.FreeHGlobal((IntPtr)data_fp32);
-								//Marshal.FreeHGlobal((IntPtr)data_fp16);
 								data = output.ToArray();
 
 							}

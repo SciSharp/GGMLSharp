@@ -131,7 +131,7 @@ namespace Converter
 				};
 				ggml_context* ctx = Native.ggml_init(@params);
 				int length = (int)(tensors[i].offset[1] - tensors[i].offset[0]);
-				
+
 				ggml_tensor* ggml_tensor = Native.ggml_new_tensor(ctx, tensors[i].dtype, tensors[i].shape.Length, tensors[i].shape);
 				Native.ggml_set_name(ggml_tensor, tensors[i].name);
 
@@ -157,7 +157,7 @@ namespace Converter
 				Native.gguf_write_to_file(g_ctx, outputFileName, true);
 
 				byte[] bytes = File.ReadAllBytes(outputFileName);
-				int totalSize = bytes.Length;
+				long totalSize = 0;
 				for (int i = 0; i < (int)g_ctx->header.n_tensors; ++i)
 				{
 					gguf_tensor_info* info = &g_ctx->infos[i];
@@ -170,8 +170,8 @@ namespace Converter
 
 					long size_pad = Native.GGML_PAD((int)size, (int)g_ctx->alignment);
 
-					byte[] data = ReadByteFromFile(inputFileName, (int)bPosition, (int)tensor.offset[0], (int)size);
-					totalSize = totalSize + (int)size_pad;
+					byte[] data = ReadByteFromFile(inputFileName, (int)bPosition, tensor.offset[0], (int)size);
+					totalSize = totalSize + size_pad;
 					if (size_pad != size)
 					{
 						for (long j = 0; j < size_pad - size; ++j)
@@ -194,12 +194,6 @@ namespace Converter
 
 		}
 
-		private byte[] gguf_bwrite_el(byte[] buf, IntPtr data, int size)
-		{
-			byte[] bytes = new byte[size];
-			Marshal.Copy(data, bytes, 0, size);
-			return buf.Concat(bytes).ToArray();
-		}
 
 	}
 }

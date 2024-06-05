@@ -18,7 +18,13 @@ namespace Converter.Safetensors
 			public long body_position { get; set; }
 		}
 
-		public static List<CommonTensor> ReadTensorsInfoFromFile(string inputFileName, out long bodyPosition)
+
+		public static List<CommonTensor> ReadTensorsInfoFromFile(string inputFileName)
+		{
+			return ReadTensorsInfoFromFile(inputFileName, out _);
+		}
+
+		private static List<CommonTensor> ReadTensorsInfoFromFile(string inputFileName, out long bodyPosition)
 		{
 			using (FileStream stream = File.OpenRead(inputFileName))
 			{
@@ -102,12 +108,7 @@ namespace Converter.Safetensors
 			}
 		}
 
-		public static List<CommonTensor> ReadTensorsInfoFromFile(string inputFileName)
-		{
-			return ReadTensorsInfoFromFile(inputFileName, out _);
-		}
-
-		public static byte[] ReadByteFromFile(string inputFileName, long bodyPosition, long offset, int size)
+		private static byte[] ReadByteFromFile(string inputFileName, long bodyPosition, long offset, int size)
 		{
 			using (FileStream stream = File.OpenRead(inputFileName))
 			{

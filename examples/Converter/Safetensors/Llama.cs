@@ -1,4 +1,5 @@
-﻿using GGMLSharp;
+﻿using Converter.Abstractions;
+using GGMLSharp;
 using Newtonsoft.Json.Linq;
 using ProtoBuf;
 using System.Runtime.InteropServices;
@@ -8,9 +9,9 @@ using static GGMLSharp.Structs;
 
 namespace Converter.Safetensors
 {
-	internal unsafe class Llama
-	{
-		public void Convert(string safetensorsPath, string outputFileName, bool WriteToFileUsingStream = true)
+	public unsafe class Llama: ISafeTensorConverter
+    {
+		public void Convert(string safetensorsPath, string outputFileName, bool WriteToFileUsingStream = tru.e)
 		{
 			ConfigLoader configLoader = new ConfigLoader();
 			configLoader.LoadFromFolder(safetensorsPath);

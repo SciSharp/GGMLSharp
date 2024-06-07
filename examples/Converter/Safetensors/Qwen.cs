@@ -1,14 +1,16 @@
-﻿using GGMLSharp;
+﻿using Converter.Abstractions;
+using Converter.CommonLib;
+using GGMLSharp;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using static Converter.Safetensors.SafetensorsLoader;
 using static GGMLSharp.Structs;
 
-namespace Converter.Safetensors: ISafeTensorConverter
+namespace Converter.Safetensors
 {
-	public unsafe class Qwen
+	public unsafe class Qwen : ISafeTensorConverter
 	{
-		public void Convert(string safetensorsPath, string outputFileName, bool WriteToFileUsingStream = true)
+		public void Convert(string folderPath, string outputFileName, bool WriteToFileUsingStream = true)
 		{
 			Console.WriteLine("Start to load configs and add to gguf_context.");
 			ConfigLoader configLoader = new ConfigLoader();

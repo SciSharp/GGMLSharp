@@ -1,4 +1,6 @@
-﻿using GGMLSharp;
+﻿using Converter.Abstractions;
+using Converter.CommonLib;
+using GGMLSharp;
 using ProtoBuf;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
@@ -9,7 +11,7 @@ namespace Converter.Safetensors
 {
 	internal unsafe class Llama : ISafeTensorConverter
 	{
-		public void Convert(string safetensorsPath, string outputFileName, bool WriteToFileUsingStream = true)
+		public void Convert(string folderPath, string outputFileName, bool WriteToFileUsingStream = true)
 		{
 			Console.WriteLine("Start to load configs and add to gguf_context.");
 			ConfigLoader configLoader = new ConfigLoader();

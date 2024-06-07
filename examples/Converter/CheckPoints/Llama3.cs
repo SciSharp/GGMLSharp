@@ -1,13 +1,13 @@
 ﻿using Converter.CommonLib;
-using Converter.Safetensors;
 using GGMLSharp;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using static GGMLSharp.Structs;
+using Converter.Abstractions;
 
 namespace Converter.CheckPoints
 {
-	internal class Llama3
+	internal class Llama3 : IPickleConverter
 	{
 		public unsafe void Convert(string folderPath, string outputFileName, bool WriteToFileUsingStream = true)
 		{
@@ -73,7 +73,7 @@ namespace Converter.CheckPoints
 				};
 				ggml_context* ggml_context = Native.ggml_init(ggml_params);
 
-				string name =CommonLib.DataTrans.TensorNameTransToGgufName(tensor.Name);
+				string name = CommonLib.DataTrans.TensorNameTransToGgufName(tensor.Name);
 
 				if (name == tensor.Name)
 				{

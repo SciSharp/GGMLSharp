@@ -1,13 +1,11 @@
-﻿using GGMLSharp;
-using System.IO.Compression;
-using System.Runtime.InteropServices;
+﻿using System.IO.Compression;
 using static GGMLSharp.Structs;
 
-namespace Converter
+namespace Converter.CheckPoints
 {
-	internal unsafe class CommonCkptTensorReaderDemo
+	internal class PickleLoader
 	{
-		private class CommonTensor
+		public class CommonTensor
 		{
 			public string Name { get; set; }
 			public ggml_type Type { get; set; } = ggml_type.GGML_TYPE_F16;
@@ -17,7 +15,7 @@ namespace Converter
 			public string FileName { get; set; }
 		}
 
-		private List<CommonTensor> ReadTensorInfoFromFile(string fileName)
+		public static List<CommonTensor> ReadTensorInfoFromFile(string fileName)
 		{
 			List<CommonTensor> tensors = new List<CommonTensor>();
 
@@ -117,7 +115,7 @@ namespace Converter
 						break;
 					case (byte)'M':  // BININT2        = b'M'   # push 2-byte unsigned int
 						{
-							int value = BitConverter.ToUInt16(headerBytes, index + 1);
+							UInt16 value = BitConverter.ToUInt16(headerBytes, index + 1); 
 							index += 2;
 
 							if (deepth > 1 && value != 0 && binPersid)
@@ -136,6 +134,7 @@ namespace Converter
 					case (byte)'J':  // BININT         = b'J'   # push four-byte signed int
 						{
 							int value = BitConverter.ToInt32(headerBytes, index + 1);
+							//int value = headerBytes[index + 4] << 24 + headerBytes[index + 3] << 16 + headerBytes[index + 2] << 8 + headerBytes[index + 1];
 							index += 4;
 
 							if (deepth > 1 && value != 0 && binPersid)
@@ -255,81 +254,7 @@ namespace Converter
 			return tensors;
 		}
 
-		public unsafe void ConvertSafetensorsToGguf(string inputFileName, string outputFileName, bool WriteToFileUsingStream = true)
-		{
-			// If want to use stream to write file, set WriteToFileUsingStream to true.
-			// Using gguf_write_to_file to write gguf file will read all tensors and there all data in to memory before writing file.
-			// Memory usage is about 2 times of the file size. If the file is too large, it will cause out of memory.
-			// Using stream to write file will avoid this problem. Memory usage is about 2 times of the largest tensor size, but not all tensors.
-
-			List<CommonTensor> tensors = ReadTensorInfoFromFile(inputFileName);
-			gguf_context* g_ctx = Native.gguf_init_empty();
-
-			for (int i = 0; i < tensors.Count; i++)
-			{
-				ggml_init_params @params = new ggml_init_params
-				{
-					mem_size = Native.ggml_tensor_overhead(),
-					mem_buffer = IntPtr.Zero,
-					no_alloc = true
-				};
-				ggml_context* ctx = Native.ggml_init(@params);
-				ggml_tensor* ggml_tensor = Native.ggml_new_tensor(ctx, tensors[i].Type, tensors[i].Shape.Count, tensors[i].Shape.ToArray());
-				Native.ggml_set_name(ggml_tensor, tensors[i].Name);
-				if (!WriteToFileUsingStream)
-				{
-					byte[] dest = ReadByteFromFile(tensors[i]);
-					ggml_tensor->data = Marshal.AllocHGlobal(dest.Length);
-					Marshal.Copy(dest, 0, ggml_tensor->data, dest.Length);
-				}
-				Native.gguf_add_tensor(g_ctx, ggml_tensor);
-				Native.ggml_free(ctx);
-				Marshal.FreeHGlobal(ggml_tensor->data);
-				GC.Collect();
-			}
-
-			if (!WriteToFileUsingStream)
-			{
-				Native.gguf_write_to_file(g_ctx, outputFileName, false);
-			}
-			else
-			{
-				Native.gguf_write_to_file(g_ctx, outputFileName, true);
-
-				byte[] bytes = File.ReadAllBytes(outputFileName);
-				long totalSize = 0;
-				for (int i = 0; i < (int)g_ctx->header.n_tensors; ++i)
-				{
-					gguf_tensor_info* info = &g_ctx->infos[i];
-					string name = Marshal.PtrToStringUTF8(info->name.data);
-					Console.WriteLine($"{name} is doing, current total byte is {totalSize}");
-
-					CommonTensor tensor = tensors.Find(x => x.Name == name);
-					long size = Math.Max(info->size, (int)g_ctx->alignment);
-					long size_pad = Native.GGML_PAD((int)size, (int)g_ctx->alignment);
-					byte[] data = ReadByteFromFile(tensor);
-					totalSize = totalSize + size_pad;
-					if (size_pad != size)
-					{
-						for (long j = 0; j < size_pad - size; ++j)
-						{
-							data = data.Concat(new byte[] { 0 }).ToArray();
-						}
-					}
-
-					using (FileStream stream = new FileStream(outputFileName, FileMode.Append, FileAccess.Write))
-					{
-						stream.Write(data, 0, data.Length);
-					}
-					GC.Collect();
-				}
-			}
-			Native.gguf_free(g_ctx);
-			Console.WriteLine("Have Done.");
-
-		}
-
-		private byte[] ReadByteFromFile(CommonTensor tensor)
+		public static byte[] ReadByteFromFile(CommonTensor tensor)
 		{
 			ZipArchive zip = ZipFile.OpenRead(tensor.FileName);
 			ZipArchiveEntry dataEntry = zip.Entries.First(e => e.Name == tensor.DataNameInZipFile);
@@ -340,6 +265,5 @@ namespace Converter
 			}
 			return data;
 		}
-
 	}
 }

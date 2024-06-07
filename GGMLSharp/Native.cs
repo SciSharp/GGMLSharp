@@ -35,6 +35,16 @@ namespace GGMLSharp
 		[DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
 		public extern static void ggml_bf16_to_fp32_row(uint16_t* x, float* y, int64_t n);
 
+		public static float[] ggml_bf16_to_fp32_row(uint16_t[] x)
+		{
+			float[] y = new float[x.Length];
+			ggml_bf16_to_fp32_row(Marshal.UnsafeAddrOfPinnedArrayElement(x,0), Marshal.UnsafeAddrOfPinnedArrayElement(y, 0), x.Length);
+			return y;
+		}
+
+		[DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
+		extern static void ggml_bf16_to_fp32_row(IntPtr x, IntPtr y, int64_t n);
+
 		[DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
 		public extern static void ggml_fp32_to_bf16_row(float* x, uint16_t* y, int64_t n);
 
@@ -43,6 +53,16 @@ namespace GGMLSharp
 
 		[DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
 		public extern static void ggml_fp32_to_fp16_row(float* x, ggml_fp16_t* y, int64_t n);
+
+		public static ggml_fp16_t[] ggml_fp32_to_fp16_row(float[] x)
+		{
+			ggml_fp16_t[] y = new ggml_fp16_t[x.Length];
+			ggml_fp32_to_fp16_row(Marshal.UnsafeAddrOfPinnedArrayElement(x, 0), Marshal.UnsafeAddrOfPinnedArrayElement(y, 0), x.Length);
+			return y;
+		}
+
+		[DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
+		extern static void ggml_fp32_to_fp16_row(IntPtr x, IntPtr y, int64_t n);
 
 		[DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
 		public extern static bool ggml_guid_matches(ggml_guid_t guid_a, ggml_guid_t guid_b);

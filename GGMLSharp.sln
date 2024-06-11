@@ -13,6 +13,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "magika", "examples\magika\m
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Converter", "examples\Converter\Converter.csproj", "{8881D99E-51F8-4166-8431-3FD51593DA04}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "mnist_cpu", "examples\mnist_cpu\mnist_cpu.csproj", "{88D5BD68-A94B-4E2A-90A0-94A2DDD2E29B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -35,6 +37,10 @@ Global
 		{8881D99E-51F8-4166-8431-3FD51593DA04}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{8881D99E-51F8-4166-8431-3FD51593DA04}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{8881D99E-51F8-4166-8431-3FD51593DA04}.Release|Any CPU.Build.0 = Release|Any CPU
+		{88D5BD68-A94B-4E2A-90A0-94A2DDD2E29B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{88D5BD68-A94B-4E2A-90A0-94A2DDD2E29B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{88D5BD68-A94B-4E2A-90A0-94A2DDD2E29B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{88D5BD68-A94B-4E2A-90A0-94A2DDD2E29B}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -43,6 +49,7 @@ Global
 		{188F65A4-CBA2-47B1-B3FD-06FC2C8D8549} = {57E7CF36-683E-4A68-B3C8-72A13167CA82}
 		{1D0BDF9D-E92E-4629-83E7-63E100196492} = {57E7CF36-683E-4A68-B3C8-72A13167CA82}
 		{8881D99E-51F8-4166-8431-3FD51593DA04} = {57E7CF36-683E-4A68-B3C8-72A13167CA82}
+		{88D5BD68-A94B-4E2A-90A0-94A2DDD2E29B} = {57E7CF36-683E-4A68-B3C8-72A13167CA82}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {76778827-4559-416F-A528-DF29292C601E}

@@ -9,10 +9,6 @@ namespace mnist_cpu
 	{
 		static void Main(string[] args)
 		{
-			List<PickleLoader.CommonTensor> tensors = PickleLoader.ReadTensorInfoFromFile(@"D:\DeepLearning\yolo\yolov5\yolov5n.pt");
-			Native.ggml_conv_2d
-
-
 			Model model = LoadModel(@".\Assets\mnist_model.state_dict");
 			byte[] bytes = File.ReadAllBytes(@".\Assets\image.raw");
 			Console.WriteLine("The image is:");

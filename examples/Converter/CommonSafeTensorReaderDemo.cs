@@ -41,7 +41,7 @@ namespace Converter
 				JToken token = JToken.Parse(header);
 				ggml_init_params @params = new ggml_init_params
 				{
-					mem_size = (token.Children().Count() + 1) * Native.ggml_tensor_overhead(),
+					mem_size = (ulong)(token.Children().Count() + 1) * Native.ggml_tensor_overhead(),
 					mem_buffer = IntPtr.Zero,
 					no_alloc = true
 				};
@@ -157,7 +157,7 @@ namespace Converter
 				Native.gguf_write_to_file(g_ctx, outputFileName, true);
 
 				byte[] bytes = File.ReadAllBytes(outputFileName);
-				long totalSize = 0;
+				ulong totalSize = 0;
 				for (int i = 0; i < (int)g_ctx->header.n_tensors; ++i)
 				{
 					gguf_tensor_info* info = &g_ctx->infos[i];
@@ -165,16 +165,16 @@ namespace Converter
 					Console.WriteLine($"{name} is doing, current total byte is {totalSize}");
 
 					CommonTensor tensor = tensors.Find(x => x.name == name);
-					long size = Math.Max(info->size, (int)g_ctx->alignment);
+					ulong size = Math.Max(info->size, g_ctx->alignment);
 					long _offset = tensor.offset[1] - tensor.offset[0];
 
-					long size_pad = Native.GGML_PAD((int)size, (int)g_ctx->alignment);
+					ulong size_pad = (ulong)Native.GGML_PAD((int)size, (int)g_ctx->alignment);
 
 					byte[] data = ReadByteFromFile(inputFileName, (int)bPosition, tensor.offset[0], (int)size);
 					totalSize = totalSize + size_pad;
 					if (size_pad != size)
 					{
-						for (long j = 0; j < size_pad - size; ++j)
+						for (ulong j = 0; j < size_pad - size; ++j)
 						{
 							data = data.Concat(new byte[] { 0 }).ToArray();
 						}

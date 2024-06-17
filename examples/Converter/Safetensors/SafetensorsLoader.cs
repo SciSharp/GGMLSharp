@@ -52,7 +52,7 @@ namespace Converter.Safetensors
 				JToken token = JToken.Parse(header);
 				ggml_init_params @params = new ggml_init_params
 				{
-					mem_size = (token.Children().Count() + 1) * Native.ggml_tensor_overhead(),
+					mem_size = (ulong)(token.Children().Count() + 1) * Native.ggml_tensor_overhead(),
 					mem_buffer = IntPtr.Zero,
 					no_alloc = true
 				};

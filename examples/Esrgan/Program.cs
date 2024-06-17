@@ -4,10 +4,7 @@
 	{
 		static void Main(string[] args)
 		{
-			Console.WriteLine("Hello, World!");
-			List<PickleLoader.CommonTensor> tensors = PickleLoader.ReadTensorInfoFromFile(@"D:\DeepLearning\llama\ggml\examples\sam\sam_vit_b_01ec64.pth");
-		
-
+			List<PickleLoader.CommonTensor> tensors = PickleLoader.ReadTensorInfoFromFile(@".\Assets\RealESRGAN_x4plus_anime_6B.pth");
 		}
 	}
 }

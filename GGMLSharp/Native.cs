@@ -1417,7 +1417,7 @@ namespace GGMLSharp
 				case gguf_type.GGUF_TYPE_BOOL:
 					return sizeof(bool);
 				case gguf_type.GGUF_TYPE_STRING:
-					return sizeof(gguf_str);
+					return (ulong)sizeof(gguf_str);
 				case gguf_type.GGUF_TYPE_UINT64:
 					return sizeof(uint64_t);
 				case gguf_type.GGUF_TYPE_INT64:

@@ -77,7 +77,7 @@ namespace mnist_cnn
 
 		private static int mnist_eval(mnist_model model, int n_threads, float[] digit, string fname_cgraph)
 		{
-			long buf_size = 1024 * 1024; // Get 1M mem size
+			ulong buf_size = 1024 * 1024; // Get 1M mem size
 			ggml_init_params @params = new ggml_init_params
 			{
 				mem_buffer = IntPtr.Zero,

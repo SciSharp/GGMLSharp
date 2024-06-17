@@ -28,7 +28,7 @@ namespace GGMLSharp
 		const int GGML_MAX_NAME = 128; // 64?
 		const int GGML_MAX_OP_PARAMS = 64;
 		const int GGML_DEFAULT_N_THREADS = 4;
-		const int GGML_DEFAULT_GRAPH_SIZE = 2048;
+		public const int GGML_DEFAULT_GRAPH_SIZE = 2048;
 
 		/// <summary>
 		///  x64 only
@@ -470,7 +470,7 @@ namespace GGMLSharp
 			public fixed byte padding[8];
 		};
 
-		public size_t GGML_TENSOR_SIZE => sizeof(ggml_tensor);
+		public size_t GGML_TENSOR_SIZE => (ulong)sizeof(ggml_tensor);
 		public delegate bool ggml_abort_callback(IntPtr data);
 
 		[StructLayout(LayoutKind.Sequential)]
@@ -880,7 +880,7 @@ namespace GGMLSharp
 			public IntPtr data;
 		};
 
-		[StructLayout(LayoutKind.Explicit,Size =24)]
+		[StructLayout(LayoutKind.Explicit, Size = 24)]
 		public struct gguf_value
 		{
 			[FieldOffset(0)] public uint8_t uint8;

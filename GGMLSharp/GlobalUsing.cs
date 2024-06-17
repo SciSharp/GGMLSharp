@@ -1,4 +1,4 @@
-﻿global using size_t = long;
+﻿global using size_t = ulong;
 global using int64_t = long;
 global using int32_t = int;
 global using uint8_t = byte;

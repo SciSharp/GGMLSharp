@@ -148,18 +148,18 @@ namespace magika
 					string? name = Native.gguf_get_tensor_name(ctx_gguf, i);
 
 					ggml_tensor* tensor = Native.ggml_get_tensor(ctx, name);
-					long offs = Native.gguf_get_data_offset(ctx_gguf) + Native.gguf_get_tensor_offset(ctx_gguf, i);
+					ulong offs = Native.gguf_get_data_offset(ctx_gguf) + Native.gguf_get_tensor_offset(ctx_gguf, i);
 
 
-					long n_bytes = Native.ggml_nbytes(tensor);
+					ulong n_bytes = Native.ggml_nbytes(tensor);
 					byte[] buf = new byte[n_bytes];
 
 
-					fs.Seek(offs, SeekOrigin.Begin);
+					fs.Seek((long)offs, SeekOrigin.Begin);
 					int bytesRead = fs.Read(buf, 0, buf.Length);
 					IntPtr buf_data = Marshal.UnsafeAddrOfPinnedArrayElement(buf, 0);
 
-					Native.ggml_backend_tensor_set(tensor, buf_data, 0, bytesRead);
+					Native.ggml_backend_tensor_set(tensor, buf_data, 0, (ulong)bytesRead);
 				}
 			}
 
@@ -172,7 +172,7 @@ namespace magika
 		{
 			int GGML_DEFAULT_GRAPH_SIZE = 2048;
 			magika_hparams hparams = model.hparams;
-			long buf_size = Native.ggml_tensor_overhead() * GGML_DEFAULT_GRAPH_SIZE + Native.ggml_graph_overhead();
+			ulong buf_size = Native.ggml_tensor_overhead() * (ulong)GGML_DEFAULT_GRAPH_SIZE + Native.ggml_graph_overhead();
 
 			ggml_init_params @params = new ggml_init_params
 			{
@@ -297,7 +297,7 @@ namespace magika
 				oneHot[257 * j + buf[j]] = 1.0f;
 			}
 
-			Native.ggml_backend_tensor_set(input, Marshal.UnsafeAddrOfPinnedArrayElement(oneHot, 0), 0, 257 * inpBytes * sizeof(float));
+			Native.ggml_backend_tensor_set(input, Marshal.UnsafeAddrOfPinnedArrayElement(oneHot, 0), 0, (ulong)(257 * inpBytes * sizeof(float)));
 			if (Native.ggml_backend_graph_compute(model.backend, gf) != ggml_status.GGML_STATUS_SUCCESS)
 			{
 				throw new Exception("ggml_backend_graph_compute() failed");
@@ -306,7 +306,7 @@ namespace magika
 			ggml_tensor* target_label_probs = Native.ggml_graph_get_tensor(gf, "target_label_probs");
 
 			float[] probs = new float[hparams.n_label];
-			Native.ggml_backend_tensor_get(target_label_probs, Marshal.UnsafeAddrOfPinnedArrayElement(probs, 0), 0, hparams.n_label * sizeof(float));
+			Native.ggml_backend_tensor_get(target_label_probs, Marshal.UnsafeAddrOfPinnedArrayElement(probs, 0), 0, (ulong)hparams.n_label * sizeof(float));
 
 			return probs;
 		}

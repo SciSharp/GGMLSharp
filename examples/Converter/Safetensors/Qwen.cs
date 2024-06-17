@@ -142,17 +142,17 @@ namespace Converter.Safetensors
 
 				byte[] bytes = File.ReadAllBytes(outputFileName);
 
-				long totalSize = 0;
+				ulong totalSize = 0;
 				for (int i = 0; i < (int)gguf_ctx->header.n_tensors; ++i)
 				{
 					gguf_tensor_info* info = &gguf_ctx->infos[i];
 					string name = Marshal.PtrToStringUTF8(info->name.data);
 
 					CommonTensor tensor = safetensors.Find(x => CommonLib.DataTrans.TensorNameTransToGgufName(x.Name) == name);
-					long size = Math.Max(info->size, (int)gguf_ctx->alignment);
+					ulong size = Math.Max(info->size, gguf_ctx->alignment);
 					long _offset = tensor.Offset[1] - tensor.Offset[0];
 
-					long size_pad = Native.GGML_PAD((int)size, (int)gguf_ctx->alignment);
+					ulong size_pad = (ulong)Native.GGML_PAD((int)size, (int)gguf_ctx->alignment);
 
 					byte[] data = ReadByteFromFile(tensor);
 					Console.WriteLine($"{name} is doing, bytes to read is {data.Length}, total bytes is {totalSize}");
@@ -185,7 +185,7 @@ namespace Converter.Safetensors
 					totalSize = totalSize + size_pad;
 					if (size_pad != size)
 					{
-						for (long j = 0; j < size_pad - size; ++j)
+						for (ulong j = 0; j < size_pad - size; ++j)
 						{
 							data = data.Concat(new byte[] { 0 }).ToArray();
 						}

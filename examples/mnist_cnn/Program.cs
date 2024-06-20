@@ -1,7 +1,7 @@
 ﻿using GGMLSharp;
-using static GGMLSharp.Structs;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using static GGMLSharp.Structs;
 
 namespace mnist_cnn
 {

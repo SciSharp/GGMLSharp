@@ -617,7 +617,7 @@ namespace GGMLSharp
 			public ggml_context context;
 		};
 
-		[StructLayout(LayoutKind.Sequential, Pack = 4)]
+		[StructLayout(LayoutKind.Sequential, Pack = 8)]
 		public struct ggml_opt_params
 		{
 			public ggml_opt_type type;
@@ -658,31 +658,6 @@ namespace GGMLSharp
 			/// </summary>
 			public lbfgs _lbfgs;
 
-			[StructLayout(LayoutKind.Sequential)]
-			public struct lbfgs
-			{
-				/// <summary>
-				/// number of corrections to approximate the inv. Hessian
-				/// </summary>
-				public int m;
-				public int n_iter;
-				public int max_linesearch;
-
-				/// <summary>
-				/// convergence tolerance
-				/// </summary>
-				public float eps;
-
-				/// <summary>
-				/// line search tolerance
-				/// </summary>
-				public float ftol;
-				public float wolfe;
-				public float min_step;
-				public float max_step;
-
-				public ggml_linesearch linesearch;
-			}
 
 			// ADAM parameters
 			[StructLayout(LayoutKind.Sequential)]
@@ -732,9 +707,33 @@ namespace GGMLSharp
 				/// </summary>
 				public float gclip;
 			}
+
+			[StructLayout(LayoutKind.Sequential)]
+			public struct lbfgs
+			{
+				/// <summary>
+				/// number of corrections to approximate the inv. Hessian
+				/// </summary>
+				public int m;
+				public int n_iter;
+				public int max_linesearch;
+
+				/// <summary>
+				/// convergence tolerance
+				/// </summary>
+				public float eps;
+
+				/// <summary>
+				/// line search tolerance
+				/// </summary>
+				public float ftol;
+				public float wolfe;
+				public float min_step;
+				public float max_step;
+
+				public ggml_linesearch linesearch;
+			}
 		};
-
-
 
 		[StructLayout(LayoutKind.Sequential)]
 		public struct ggml_opt_context

@@ -8,44 +8,44 @@ namespace GGMLSharp
 		/// <summary>
 		/// "ggml"
 		/// </summary>
-		const int GGML_FILE_MAGIC = 0x67676d6c;
-		const int GGML_FILE_VERSION = 1;
+		public const int GGML_FILE_MAGIC = 0x67676d6c;
+		public const int GGML_FILE_VERSION = 1;
 
 		/// <summary>
 		/// bump this on quantization format changes
 		/// </summary>
-		const int GGML_QNT_VERSION = 2;
+		public const int GGML_QNT_VERSION = 2;
 
 		/// <summary>
 		/// do not change this
 		/// </summary>
-		const int GGML_QNT_VERSION_FACTOR = 1000;
+		public const int GGML_QNT_VERSION_FACTOR = 1000;
 
-		const int GGML_MAX_DIMS = 4;
-		const int GGML_MAX_PARAMS = 2048;
-		const int GGML_MAX_CONTEXTS = 64;
-		const int GGML_MAX_SRC = 10;
-		const int GGML_MAX_NAME = 128; // 64?
-		const int GGML_MAX_OP_PARAMS = 64;
-		const int GGML_DEFAULT_N_THREADS = 4;
+		public const int GGML_MAX_DIMS = 4;
+		public const int GGML_MAX_PARAMS = 2048;
+		public const int GGML_MAX_CONTEXTS = 64;
+		public const int GGML_MAX_SRC = 10;
+		public const int GGML_MAX_NAME = 128; // 64?
+		public const int GGML_MAX_OP_PARAMS = 64;
+		public const int GGML_DEFAULT_N_THREADS = 4;
 		public const int GGML_DEFAULT_GRAPH_SIZE = 2048;
 
 		/// <summary>
 		///  x64 only
 		/// </summary>
-		const int GGML_MEM_ALIGN = 16;
+		public const int GGML_MEM_ALIGN = 16;
 
-		const int GGML_EXIT_SUCCESS = 0;
-		const int GGML_EXIT_ABORTED = 1;
+		public const int GGML_EXIT_SUCCESS = 0;
+		public const int GGML_EXIT_ABORTED = 1;
 
-		const string GGUF_MAGIC = "GGUF";
+		public const string GGUF_MAGIC = "GGUF";
 
-		const int GGUF_VERSION = 3;
+		public const int GGUF_VERSION = 3;
 
-		const int GGUF_DEFAULT_ALIGNMENT = 32;
-		const int GGML_N_TASKS_MAX = -1;
-		const int GGML_KQ_MASK_PAD = 32;
-		const int MAX_FREE_BLOCKS = 256;
+		public const int GGUF_DEFAULT_ALIGNMENT = 32;
+		public const int GGML_N_TASKS_MAX = -1;
+		public const int GGML_KQ_MASK_PAD = 32;
+		public const int MAX_FREE_BLOCKS = 256;
 
 
 		#region ggml.h
@@ -446,7 +446,7 @@ namespace GGMLSharp
 			public int32_t flags;
 
 			public ggml_tensor* grad;
-			public fixed long src[GGML_MAX_SRC];
+			public fixed ulong src[GGML_MAX_SRC];
 
 			/// <summary>
 			/// performance

@@ -4,7 +4,6 @@ using GGMLSharp;
 using ProtoBuf;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
-using static Converter.Safetensors.SafetensorsLoader;
 using static GGMLSharp.Structs;
 
 namespace Converter.Safetensors
@@ -63,11 +62,12 @@ namespace Converter.Safetensors
 			Native.gguf_set_val_bool(gguf_ctx, $"tokenizer.ggml.add_eos_token", configLoader.add_eos_token);
 			Native.gguf_set_val_u32(gguf_ctx, $"general.quantization_version", 2);
 
-			List<SafetensorsLoader.CommonTensor> tensors = new List<SafetensorsLoader.CommonTensor>();
+			List<ModelLoader.Tensor> tensors = new List<ModelLoader.Tensor>();
+			ModelLoader.IModelLoader modelLoader = new ModelLoader.SafetensorsLoader();
 			string[] files = Directory.GetFiles(folderPath, "*.safetensors");
 			foreach (string file in files)
 			{
-				tensors.AddRange(SafetensorsLoader.ReadTensorsInfoFromFile(file));
+				tensors.AddRange(modelLoader.ReadTensorsInfoFromFile(file));
 			}
 			Console.WriteLine("Start to load tensors from file and add to gguf_context.");
 			foreach (var tensor in tensors)
@@ -81,43 +81,43 @@ namespace Converter.Safetensors
 					no_alloc = true
 				};
 				ggml_context* ggml_context = Native.ggml_init(ggml_params);
-				long offeset = tensor.Offset[0];
+				long offeset = (long)tensor.Offset[0];
 				int length = (int)(tensor.Offset[1] - tensor.Offset[0]);
 
-				string name = CommonLib.DataTrans.TensorNameTransToGgufName(tensor.Name);
+				string name = DataTrans.TensorNameTransToGgufName(tensor.Name);
 
 				if (name == tensor.Name)
 				{
 					continue;
 				}
-				ggml_type type = tensor.Shape.Length == 1 ? ggml_type.GGML_TYPE_F32 : ggml_type.GGML_TYPE_F16;
-				ggml_tensor* ggml_tensor = Native.ggml_new_tensor(ggml_context, type, tensor.Shape.Length, tensor.Shape);
+				ggml_type type = tensor.Shape.Count == 1 ? ggml_type.GGML_TYPE_F32 : ggml_type.GGML_TYPE_F16;
+				ggml_tensor* ggml_tensor = Native.ggml_new_tensor(ggml_context, type, tensor.Shape.Count, tensor.Shape.ToArray());
 				Native.ggml_set_name(ggml_tensor, name);
 				if (!WriteToFileUsingStream)
 				{
-					byte[] data = ReadByteFromFile(tensor);
-					if (tensor.Shape.Length == 1)
+					byte[] data = modelLoader.ReadByteFromFile(tensor);
+					if (tensor.Shape.Count == 1)
 					{
 						if (tensor.Type == ggml_type.GGML_TYPE_F16)
 						{
-							data = CommonLib.DataTrans.Fp16ToF32Bytes(data);
+							ModelLoader.DataConverter.Fp16ToFp32Bytes(ref data);
 						}
 						else if (tensor.Type == ggml_type.GGML_TYPE_BF16)
 						{
-							data = CommonLib.DataTrans.Bf16ToF32Bytes(data);
+							ModelLoader.DataConverter.Bf16ToFp32Bytes(ref data);
 						}
 					}
 					else
 					{
 						if (tensor.Type == ggml_type.GGML_TYPE_BF16)
 						{
-							data = CommonLib.DataTrans.Bf16ToFp16Bytes(data);
+							ModelLoader.DataConverter.Bf16ToFp16Bytes(data);
 						}
 					}
 					ggml_tensor->data = Marshal.AllocHGlobal(length);
 					Marshal.Copy(data, 0, ggml_tensor->data, length);
 				}
-				if (tensor.Shape.Length > 1)
+				if (tensor.Shape.Count > 1)
 				{
 					if (name == "token_embd.weight" || name == "output.weight" || Regex.IsMatch(name, @"blk.\d+.ffn_(gate|down|up).weight") || Regex.IsMatch(name, @"blk.\d+.attn_(v|k).weight"))
 					{
@@ -148,21 +148,21 @@ namespace Converter.Safetensors
 				{
 					gguf_tensor_info* info = &gguf_ctx->infos[i];
 					string name = Marshal.PtrToStringUTF8(info->name.data);
-					CommonTensor tensor = tensors.Find(x => CommonLib.DataTrans.TensorNameTransToGgufName(x.Name) == name);
+					ModelLoader.Tensor tensor = tensors.Find(x => DataTrans.TensorNameTransToGgufName(x.Name) == name);
 					ulong size = Math.Max(info->size, gguf_ctx->alignment);
 
 					ulong size_pad = (ulong)Native.GGML_PAD((int)size, (int)gguf_ctx->alignment);
 
-					byte[] data = ReadByteFromFile(tensor);
+					byte[] data = modelLoader.ReadByteFromFile(tensor);
 					Console.WriteLine($"{name} is doing, bytes to read is {data.Length}, total bytes is {totalSize}");
 
-					string transName = CommonLib.DataTrans.TensorNameTransToGgufName(tensor.Name);
+					string transName = DataTrans.TensorNameTransToGgufName(tensor.Name);
 
 					if (transName == tensor.Name)
 					{
 						continue;
 					}
-					if (tensor.Shape.Length > 1)
+					if (tensor.Shape.Count > 1)
 					{
 						if (transName == "token_embd.weight" || transName == "output.weight" || Regex.IsMatch(name, @"blk.\d+.ffn_(gate|down|up).weight") || Regex.IsMatch(name, @"blk.\d+.attn_(v|k).weight")) //'blk.0.ffn_down.weight
 						{
@@ -173,7 +173,7 @@ namespace Converter.Safetensors
 								no_alloc = true
 							};
 							ggml_context* ggml_context = Native.ggml_init(ggml_params);
-							ggml_tensor* ggml_tensor = Native.ggml_new_tensor(ggml_context, tensor.Type, tensor.Shape.Length, tensor.Shape);
+							ggml_tensor* ggml_tensor = Native.ggml_new_tensor(ggml_context, tensor.Type, tensor.Shape.Count, tensor.Shape.ToArray());
 							ggml_tensor->data = Marshal.AllocHGlobal(data.Length);
 							Marshal.Copy(data, 0, ggml_tensor->data, data.Length);
 							ggml_tensor = Native.ggml_transpose(ggml_context, ggml_tensor);
@@ -184,33 +184,31 @@ namespace Converter.Safetensors
 					}
 
 					totalSize = totalSize + size_pad;
-					if (size_pad != size)
-					{
-						for (ulong j = 0; j < size_pad - size; ++j)
-						{
-							data = data.Concat(new byte[] { 0 }).ToArray();
-						}
-					}
+
 
 					using (FileStream stream = new FileStream(outputFileName, FileMode.Append, FileAccess.Write))
 					{
-						if (tensor.Shape.Length == 1)
+						if (tensor.Shape.Count == 1)
 						{
 							if (tensor.Type == ggml_type.GGML_TYPE_F16)
 							{
-								data = CommonLib.DataTrans.Fp16ToF32Bytes(data);
+								ModelLoader.DataConverter.Fp16ToFp32Bytes(ref data);
 							}
 							else if (tensor.Type == ggml_type.GGML_TYPE_BF16)
 							{
-								data = CommonLib.DataTrans.Bf16ToF32Bytes(data);
+								 ModelLoader.DataConverter.Bf16ToFp32Bytes(ref data);
 							}
 						}
 						else
 						{
 							if (tensor.Type == ggml_type.GGML_TYPE_BF16)
 							{
-								data = CommonLib.DataTrans.Bf16ToFp16Bytes(data);
+								ModelLoader.DataConverter.Bf16ToFp16Bytes(data);
 							}
+						}
+						if ((int)size_pad != data.Length)
+						{
+							data = data.Concat(new byte[(int)size_pad - data.Length]).ToArray();
 						}
 						stream.Write(data, 0, data.Length);
 					}

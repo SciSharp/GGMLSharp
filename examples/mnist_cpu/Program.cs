@@ -83,7 +83,8 @@ namespace mnist_cpu
 				no_alloc = false,
 			};
 			ggml_context* context = Native.ggml_init(@params);
-			List<PickleLoader.CommonTensor> tensors = PickleLoader.ReadTensorInfoFromFile(path);
+			ModelLoader.PickleLoader pickleLoader = new ModelLoader.PickleLoader();
+			List<ModelLoader.Tensor> tensors = pickleLoader.ReadTensorsInfoFromFile(path);
 			Model model = new Model();
 			model.context = context;
 			foreach (var tensor in tensors)
@@ -108,10 +109,10 @@ namespace mnist_cpu
 			return model;
 		}
 
-		private static ggml_tensor* LoadWeigth(ggml_context* context, PickleLoader.CommonTensor commonTensor)
+		private static ggml_tensor* LoadWeigth(ggml_context* context, ModelLoader.Tensor commonTensor)
 		{
 			ggml_tensor* tensor = Native.ggml_new_tensor(context, commonTensor.Type, commonTensor.Shape.Count, commonTensor.Shape.ToArray());
-			byte[] bytes = PickleLoader.ReadByteFromFile(commonTensor);
+			byte[] bytes = new ModelLoader.PickleLoader().ReadByteFromFile(commonTensor);
 			Marshal.Copy(bytes, 0, tensor->data, bytes.Length);
 			if (commonTensor.Name.Contains("weight"))
 			{

@@ -33,4 +33,12 @@ GGMLSharp contains all ggml shared libs and some demos.
 
 ### Converter
 
-[Converter](./examples/Converter/) is a useful tool for converting llm models from bin/ckpt/safetensors to gguf without any python environment. And in this demo you can also get how to read bin and safetensors file from binary data with stream.
+[Converter](./examples/Converter/) is a useful tool for converting llm models from bin/ckpt/safetensors to gguf without any python environment. 
+
+### ModelLoader
+
+[ModelLoader](./examples/ModelLoader/) is a tool for loading safetensors or pickle file directly from binary data. This demo can help to learn how to read a model file without any help of python.
+
+### SAM
+
+[SAM](./examples/SAM/) (Segment Anything Model) can help us seprate things from an image.

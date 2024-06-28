@@ -589,7 +589,7 @@ namespace SAM
 			}
 
 			Console.WriteLine($"loading model from {sam_params.model} - please wait ...");
-			List<PickleLoader.CommonTensor> tensors = PickleLoader.ReadTensorInfoFromFile(sam_params.model);
+			List<ModelLoader.Tensor> tensors = new ModelLoader.PickleLoader().ReadTensorsInfoFromFile(sam_params.model);
 			Console.WriteLine($"model header loaded, total layers is: {tensors.Count}");
 
 
@@ -599,7 +599,7 @@ namespace SAM
 				ulong tensorSize = Native.ggml_type_size(a.Type);
 				a.Shape.ForEach(ne =>
 				{
-					tensorSize *= ne;
+					tensorSize *= (ulong)ne;
 				});
 				ctx_size += tensorSize;
 			});
@@ -789,14 +789,14 @@ namespace SAM
 			return model;
 		}
 
-		static ggml_tensor* GetTensorFromName(ggml_context* context, List<PickleLoader.CommonTensor> tensors, string name, ggml_type type = ggml_type.GGML_TYPE_F32)
+		static ggml_tensor* GetTensorFromName(ggml_context* context, List<ModelLoader.Tensor> tensors, string name, ggml_type type = ggml_type.GGML_TYPE_F32)
 		{
 			var tensor = tensors.Find(x => x.Name == name);
 			if (tensor == null)
 			{
 				throw new Exception($"tensor {name} not found");
 			}
-			byte[] bytes = PickleLoader.ReadByteFromFile(tensor);
+			byte[] bytes = new ModelLoader.PickleLoader().ReadByteFromFile(tensor);
 			bytes = TransData(bytes, tensor.Type, type);
 			long[] ne = new long[tensor.Shape.Count];
 			for (int i = 0; i < tensor.Shape.Count; i++)
@@ -810,7 +810,7 @@ namespace SAM
 			return t;
 		}
 
-		static ggml_tensor* GetTensorFromName(ggml_context* context, List<PickleLoader.CommonTensor> tensors, string name, long[] shape, ggml_type type = ggml_type.GGML_TYPE_F32)
+		static ggml_tensor* GetTensorFromName(ggml_context* context, List<ModelLoader.Tensor> tensors, string name, long[] shape, ggml_type type = ggml_type.GGML_TYPE_F32)
 		{
 			if (shape == null)
 			{
@@ -839,7 +839,7 @@ namespace SAM
 			{
 				throw new Exception("Shape not same");
 			}
-			byte[] bytes = PickleLoader.ReadByteFromFile(tensor);
+			byte[] bytes = new ModelLoader.PickleLoader().ReadByteFromFile(tensor);
 			bytes = TransData(bytes, tensor.Type, type);
 			ggml_tensor* t = Native.ggml_new_tensor(context, type, shape.Length, shape);
 			Marshal.Copy(bytes, 0, t->data, bytes.Length);
@@ -847,102 +847,52 @@ namespace SAM
 			return t;
 		}
 
-		static byte[] TransData(byte[] data, ggml_type orgType, ggml_type desType)
+		static byte[] TransData(byte[] data, ggml_type srcType, ggml_type desType)
 		{
-			if (orgType == desType)
+			if (srcType == desType)
 			{
 				return data;
 			}
-			if (orgType != ggml_type.GGML_TYPE_F16 && orgType != ggml_type.GGML_TYPE_BF16 && orgType != ggml_type.GGML_TYPE_F32)
+			if (srcType != ggml_type.GGML_TYPE_F16 && srcType != ggml_type.GGML_TYPE_BF16 && srcType != ggml_type.GGML_TYPE_F32)
 			{
-				throw new ArgumentException("Org Type not support");
+				throw new ArgumentException("Src Type not support");
 			}
 			if (desType != ggml_type.GGML_TYPE_F16 && desType != ggml_type.GGML_TYPE_BF16 && desType != ggml_type.GGML_TYPE_F32)
 			{
 				throw new ArgumentException("Des Type not support");
 			}
 
-			if (orgType == ggml_type.GGML_TYPE_BF16)
+			if (srcType == ggml_type.GGML_TYPE_BF16)
 			{
 				if (desType == ggml_type.GGML_TYPE_F16)
 				{
-					for (int j = 0; j < data.Length; j += 2)
-					{
-						ushort data16 = (ushort)(data[j] | (data[j + 1] << 8));
-						float data32 = Native.ggml_bf16_to_fp32(data16);
-						data16 = Native.ggml_fp32_to_fp16(data32);
-						byte[] bytes = BitConverter.GetBytes(data16);
-						data[j] = bytes[0];
-						data[j + 1] = bytes[1];
-					}
+					ModelLoader.DataConverter.Bf16ToFp16Bytes(data);
 					return data;
 				}
 				else if (desType == ggml_type.GGML_TYPE_F32)
 				{
-					byte[] f32bytes = new byte[data.Length * 2];
-					for (int j = 0; j < data.Length / 2; j++)
-					{
-						ushort data16 = (ushort)(data[j * 2] | (data[j * 2 + 1] << 8));
-						float data32 = Native.ggml_bf16_to_fp32(data16);
-						byte[] bytes = BitConverter.GetBytes(data32);
-						f32bytes[j * 4] = bytes[0];
-						f32bytes[j * 4 + 1] = bytes[1];
-						f32bytes[j * 4 + 2] = bytes[2];
-						f32bytes[j * 4 + 3] = bytes[3];
-					}
-					return f32bytes;
+					ModelLoader.DataConverter.Bf16ToFp32Bytes(ref data);
+					return data;
 				}
 			}
-			else if (orgType == ggml_type.GGML_TYPE_F32)
-			{
-				byte[] bytes = new byte[data.Length / 2];
-				for (int j = 0; j < data.Length / 4; j++)
-				{
-					float f32 = BitConverter.ToSingle(data, j * 4);
-					ushort f16Data = 0;
-					if (desType == ggml_type.GGML_TYPE_BF16)
-					{
-						f16Data = Native.ggml_fp32_to_bf16(f32);
-					}
-					else if (desType == ggml_type.GGML_TYPE_F16)
-					{
-						f16Data = Native.ggml_fp32_to_fp16(f32);
-					}
-					byte[] bt = BitConverter.GetBytes(f16Data);
-					bytes[j * 2] = bt[0];
-					bytes[j * 2 + 1] = bt[1];
-				}
-				return bytes;
-			}
-			else if (orgType == ggml_type.GGML_TYPE_F16)
+			else if (srcType == ggml_type.GGML_TYPE_F32)
 			{
 				if (desType == ggml_type.GGML_TYPE_BF16)
 				{
-					for (int j = 0; j < data.Length; j += 2)
-					{
-						ushort data16 = (ushort)(data[j] | (data[j + 1] << 8));
-						float data32 = Native.ggml_fp16_to_fp32(data16);
-						data16 = Native.ggml_fp32_to_bf16(data32);
-						byte[] bytes = BitConverter.GetBytes(data16);
-						data[j] = bytes[0];
-						data[j + 1] = bytes[1];
-					}
-					return data;
+					ModelLoader.DataConverter.Fp32ToBf16Bytes(data);
 				}
-				else if (desType == ggml_type.GGML_TYPE_F32)
+				else if (desType == ggml_type.GGML_TYPE_F16)
 				{
-					byte[] f32bytes = new byte[data.Length * 2];
-					for (int j = 0; j < data.Length / 2; j++)
-					{
-						ushort data16 = (ushort)(data[j * 2] | (data[j * 2 + 1] << 8));
-						float data32 = Native.ggml_fp16_to_fp32(data16);
-						byte[] bytes = BitConverter.GetBytes(data32);
-						f32bytes[j * 4] = bytes[0];
-						f32bytes[j * 4 + 1] = bytes[1];
-						f32bytes[j * 4 + 2] = bytes[2];
-						f32bytes[j * 4 + 3] = bytes[3];
-					}
-					return f32bytes;
+					ModelLoader.DataConverter.Fp32ToFp16Bytes(data);
+				}
+				return data;
+			}
+			else if (srcType == ggml_type.GGML_TYPE_F16)
+			{
+				if (desType == ggml_type.GGML_TYPE_F32)
+				{
+					ModelLoader.DataConverter.Fp16ToFp32Bytes(ref data);
+					return data;
 				}
 			}
 			throw new ArgumentException("Not support!");

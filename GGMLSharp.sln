@@ -21,7 +21,9 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Esrgan", "examples\Esrgan\E
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "simple_backend", "examples\simple_backend\simple_backend.csproj", "{0D8FA099-67C0-4A8E-886F-A2027C7F8F99}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SAM", "examples\SAM\SAM.csproj", "{38C6D3EC-A771-4DCD-ADDB-21E267CDC59F}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SAM", "examples\SAM\SAM.csproj", "{38C6D3EC-A771-4DCD-ADDB-21E267CDC59F}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ModelLoader", "examples\ModelLoader\ModelLoader.csproj", "{7070FBF3-8E93-40ED-B628-6DB4E1ED1A08}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -65,6 +67,10 @@ Global
 		{38C6D3EC-A771-4DCD-ADDB-21E267CDC59F}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{38C6D3EC-A771-4DCD-ADDB-21E267CDC59F}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{38C6D3EC-A771-4DCD-ADDB-21E267CDC59F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7070FBF3-8E93-40ED-B628-6DB4E1ED1A08}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7070FBF3-8E93-40ED-B628-6DB4E1ED1A08}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7070FBF3-8E93-40ED-B628-6DB4E1ED1A08}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7070FBF3-8E93-40ED-B628-6DB4E1ED1A08}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -78,6 +84,7 @@ Global
 		{2719AE28-B2FB-4D32-A44B-DC6837819B8F} = {57E7CF36-683E-4A68-B3C8-72A13167CA82}
 		{0D8FA099-67C0-4A8E-886F-A2027C7F8F99} = {57E7CF36-683E-4A68-B3C8-72A13167CA82}
 		{38C6D3EC-A771-4DCD-ADDB-21E267CDC59F} = {57E7CF36-683E-4A68-B3C8-72A13167CA82}
+		{7070FBF3-8E93-40ED-B628-6DB4E1ED1A08} = {57E7CF36-683E-4A68-B3C8-72A13167CA82}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {76778827-4559-416F-A528-DF29292C601E}

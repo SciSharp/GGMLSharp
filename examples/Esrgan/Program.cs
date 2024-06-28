@@ -1,10 +1,13 @@
-﻿namespace Esrgan
+﻿using ModelLoader;
+
+namespace Esrgan
 {
 	internal class Program
 	{
 		static void Main(string[] args)
 		{
-			List<PickleLoader.CommonTensor> tensors = PickleLoader.ReadTensorInfoFromFile(@".\Assets\RealESRGAN_x4plus_anime_6B.pth");
+			IModelLoader modelLoader = new PickleLoader();
+			List<Tensor> tensors = modelLoader.ReadTensorsInfoFromFile(@".\Assets\RealESRGAN_x4plus_anime_6B.pth");
 			
 		}
 	}

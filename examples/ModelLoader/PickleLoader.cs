@@ -2,24 +2,14 @@
 using System.IO.Compression;
 using static GGMLSharp.Structs;
 
-namespace SAM
+namespace ModelLoader
 {
-	internal class PickleLoader
+	public class PickleLoader : IModelLoader
 	{
-		public class CommonTensor
-		{
-			public string Name { get; set; }
-			public ggml_type Type { get; set; } = ggml_type.GGML_TYPE_F16;
-			public List<ulong> Shape { get; set; } = new List<ulong>();
-			public List<ulong> Stride { get; set; } = new List<ulong>();
-			public string DataNameInZipFile { get; set; }
-			public string FileName { get; set; }
-			public ulong Offset { get; set; }
-		}
 
-		public static List<CommonTensor> ReadTensorInfoFromFile(string fileName)
+		public List<Tensor> ReadTensorsInfoFromFile(string fileName)
 		{
-			List<CommonTensor> tensors = new List<CommonTensor>();
+			List<Tensor> tensors = new List<Tensor>();
 
 			ZipArchive zip = ZipFile.OpenRead(fileName);
 			ZipArchiveEntry headerEntry = zip.Entries.First(e => e.Name == "data.pkl");
@@ -40,7 +30,7 @@ namespace SAM
 			bool readStrides = false;
 			bool binPersid = false;
 
-			CommonTensor tensor = new CommonTensor() { FileName = fileName };
+			Tensor tensor = new Tensor() { FileName = fileName, Offset = [0] };
 
 			int deepth = 0;
 
@@ -106,11 +96,12 @@ namespace SAM
 							{
 								if (readStrides)
 								{
+									//tensor.Stride.Add((ulong)value);
 									tensor.Stride.Add((ulong)value);
 								}
 								else
 								{
-									tensor.Shape.Add((ulong)value);
+									tensor.Shape.Add(value);
 								}
 							}
 						}
@@ -148,7 +139,7 @@ namespace SAM
 								}
 								else
 								{
-									tensor.Shape.Add((ulong)value);
+									tensor.Shape.Add(value);
 								}
 							}
 						}
@@ -235,16 +226,21 @@ namespace SAM
 					case (byte)'R': // REDUCE         = b'R'   # apply callable to argtuple, both on stack
 						if (deepth == 1)
 						{
+							if (tensor.Name.Contains("metadata"))
+							{
+								break;
+							}
+
 							if (string.IsNullOrEmpty(tensor.DataNameInZipFile))
 							{
 								tensor.DataNameInZipFile = tensors.Last().DataNameInZipFile;
-								tensor.Offset = tensor.Shape[0] * Native.ggml_type_size(tensor.Type);
+								tensor.Offset = [(ulong)tensor.Shape[0] * Native.ggml_type_size(tensor.Type)];
 								tensor.Shape.RemoveAt(0);
 								//tensor.offset = tensors.Last().
 							}
 							tensors.Add(tensor);
 
-							tensor = new CommonTensor() { FileName = fileName, Offset = 0 };
+							tensor = new Tensor() { FileName = fileName, Offset = [0] };
 							readStrides = false;
 							binPersid = false;
 						}
@@ -257,7 +253,7 @@ namespace SAM
 				}
 				index++;
 			}
-			CommonTensor? metaTensor = tensors.Find(x => x.Name.Contains("_metadata"));
+			Tensor? metaTensor = tensors.Find(x => x.Name.Contains("_metadata"));
 			if (metaTensor != null)
 			{
 				tensors.Remove(metaTensor);
@@ -265,24 +261,24 @@ namespace SAM
 			return tensors;
 		}
 
-		public static byte[] ReadByteFromFile(CommonTensor tensor)
+		public byte[] ReadByteFromFile(Tensor tensor)
 		{
 			ZipArchive zip = ZipFile.OpenRead(tensor.FileName);
 			ZipArchiveEntry dataEntry = zip.Entries.First(e => e.Name == tensor.DataNameInZipFile);
 
-			ulong i = 1;
+			long i = 1;
 			foreach (var ne in tensor.Shape)
 			{
 				i *= ne;
 			}
-			ulong length = Native.ggml_type_size(tensor.Type) * (i);
+			ulong length = Native.ggml_type_size(tensor.Type) * (ulong)i;
 			byte[] data = new byte[dataEntry.Length];
 			using (Stream stream = dataEntry.Open())
 			{
 				stream.Read(data, 0, data.Length);
 			}
 
-			data = data.Take(new Range((int)tensor.Offset, (int)(tensor.Offset + length))).ToArray();
+			data = data.Take(new Range((int)tensor.Offset[0], (int)(tensor.Offset[0] + length))).ToArray();
 			return data;
 		}
 	}

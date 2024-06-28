@@ -11,6 +11,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\GGMLSharp\GGMLSharp.csproj" />
+    <ProjectReference Include="..\ModelLoader\ModelLoader.csproj" />
   </ItemGroup>
 
   <ItemGroup>

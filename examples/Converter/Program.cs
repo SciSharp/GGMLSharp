@@ -8,10 +8,9 @@
 			// Tested Open_llama Model link is from https://huggingface.co/RiversHaveWings/open_llama_7b_safetensors
 			// Tested Qwen model link is from https://huggingface.co/Qwen/Qwen1.5-1.8B-Chat
 			// Tested LLama3 model link is from https://huggingface.co/bineric/NorskGPT-Llama3-8b/tree/main
-			// Phi can be converted by the same way as LLama, but have to trans the name of the model, not all weights contain in current model.
 
-			//new CommonSafeTensorReaderDemo().ConvertSafetensorsToGguf(@".\Assets\taesd.safetensors", "taesd.gguf");
-			new CommonCkptTensorReaderDemo().ConvertSafetensorsToGguf(@".\Assets\model.pt", "model.gguf");
+			new CommonSafeTensorReaderDemo().ConvertSafetensorsToGguf(@".\Assets\taesd.safetensors", "taesd.gguf");
+			//new CommonCkptTensorReaderDemo().ConvertSafetensorsToGguf(@".\Assets\model.pt", "model.gguf");
 
 			//new Safetensors.Llama().Convert(@".\models\open_llama", "open_llama.gguf");
 			//new Safetensors.Qwen().Convert(@".\models\qwen", "qwen.gguf");

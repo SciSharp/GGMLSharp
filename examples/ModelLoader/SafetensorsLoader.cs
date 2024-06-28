@@ -1,30 +1,13 @@
 ﻿using GGMLSharp;
 using Newtonsoft.Json.Linq;
 using System.Text;
-using System.Text.RegularExpressions;
 using static GGMLSharp.Structs;
 
-namespace Converter.Safetensors
+namespace ModelLoader
 {
-	internal class SafetensorsLoader
+	public class SafetensorsLoader : IModelLoader
 	{
-		public class CommonTensor
-		{
-			public string Name { get; set; }
-			public ggml_type Type { get; set; }
-			public long[] Shape { get; set; }
-			public long[] Offset { get; set; }
-			public string FileName { get; set; }
-			public long BodyPosition { get; set; }
-		}
-
-
-		public static List<CommonTensor> ReadTensorsInfoFromFile(string inputFileName)
-		{
-			return ReadTensorsInfoFromFile(inputFileName, out _);
-		}
-
-		private static List<CommonTensor> ReadTensorsInfoFromFile(string inputFileName, out long bodyPosition)
+		public List<Tensor> ReadTensorsInfoFromFile(string inputFileName)
 		{
 			using (FileStream stream = File.OpenRead(inputFileName))
 			{
@@ -48,7 +31,7 @@ namespace Converter.Safetensors
 				stream.Read(headerBytes, 0, (int)headerSize);
 
 				string header = Encoding.UTF8.GetString(headerBytes);
-				bodyPosition = stream.Position;
+				long bodyPosition = stream.Position;
 				JToken token = JToken.Parse(header);
 				ggml_init_params @params = new ggml_init_params
 				{
@@ -57,7 +40,7 @@ namespace Converter.Safetensors
 					no_alloc = true
 				};
 
-				List<CommonTensor> tensors = new List<CommonTensor>();
+				List<Tensor> tensors = new List<Tensor>();
 				foreach ((string? key, JToken? subToken) in token.ToObject<Dictionary<string, JToken>>())
 				{
 					Dictionary<string, JToken> value = subToken.ToObject<Dictionary<string, JToken>>();
@@ -65,7 +48,7 @@ namespace Converter.Safetensors
 					value.TryGetValue("dtype", out JToken dtype);
 					value.TryGetValue("shape", out JToken shape);
 
-					long[] offsetArray = offsets?.ToObject<long[]>();
+					ulong[] offsetArray = offsets?.ToObject<ulong[]>();
 					if (null == offsetArray)
 					{
 						continue;
@@ -73,7 +56,7 @@ namespace Converter.Safetensors
 					long[] shapeArray = shape.ToObject<long[]>();
 					if (shapeArray.Length < 1)
 					{
-						shapeArray = new long[] { 1 };
+						shapeArray = [1];
 					}
 					ggml_type ggml_type = ggml_type.GGML_TYPE_F32;
 					switch (dtype.ToString())
@@ -95,12 +78,12 @@ namespace Converter.Safetensors
 						case "F8_E5M2": break;
 					}
 
-					CommonTensor tensor = new CommonTensor
+					Tensor tensor = new Tensor
 					{
 						Name = key,
 						Type = ggml_type,
-						Shape = shapeArray,
-						Offset = offsetArray,
+						Shape = shapeArray.ToList(),
+						Offset = offsetArray.ToList(),
 						FileName = inputFileName,
 						BodyPosition = bodyPosition
 					};
@@ -111,7 +94,7 @@ namespace Converter.Safetensors
 			}
 		}
 
-		private static byte[] ReadByteFromFile(string inputFileName, long bodyPosition, long offset, int size)
+		private byte[] ReadByteFromFile(string inputFileName, long bodyPosition, long offset, int size)
 		{
 			using (FileStream stream = File.OpenRead(inputFileName))
 			{
@@ -122,14 +105,13 @@ namespace Converter.Safetensors
 			}
 		}
 
-		public static byte[] ReadByteFromFile(CommonTensor tensor)
+		public byte[] ReadByteFromFile(Tensor tensor)
 		{
 			string inputFileName = tensor.FileName;
 			long bodyPosition = tensor.BodyPosition;
-			long offset = tensor.Offset[0];
+			ulong offset = tensor.Offset[0];
 			int size = (int)(tensor.Offset[1] - tensor.Offset[0]);
-			return ReadByteFromFile(inputFileName, bodyPosition, offset, size);
+			return ReadByteFromFile(inputFileName, bodyPosition, (long)offset, size);
 		}
-
 	}
 }

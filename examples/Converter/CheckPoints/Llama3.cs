@@ -1,9 +1,9 @@
-﻿using Converter.CommonLib;
+﻿using Converter.Abstractions;
+using Converter.CommonLib;
 using GGMLSharp;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using static GGMLSharp.Structs;
-using Converter.Abstractions;
 
 namespace Converter.CheckPoints
 {
@@ -54,11 +54,12 @@ namespace Converter.CheckPoints
 			Native.gguf_set_val_str(gguf_ctx, $"tokenizer.chat_template", configLoader.chat_template);
 			Native.gguf_set_val_u32(gguf_ctx, $"general.quantization_version", 2);
 
-			List<PickleLoader.CommonTensor> tensors = new List<PickleLoader.CommonTensor>();
+			ModelLoader.IModelLoader modelLoader = new ModelLoader.PickleLoader();
+			List<ModelLoader.Tensor> tensors = new List<ModelLoader.Tensor>();
 			string[] files = Directory.GetFiles(folderPath, "*.bin");
 			foreach (string file in files)
 			{
-				tensors.AddRange(PickleLoader.ReadTensorInfoFromFile(file));
+				tensors.AddRange(modelLoader.ReadTensorsInfoFromFile(file));
 			}
 
 			foreach (var tensor in tensors)
@@ -73,7 +74,7 @@ namespace Converter.CheckPoints
 				};
 				ggml_context* ggml_context = Native.ggml_init(ggml_params);
 
-				string name = CommonLib.DataTrans.TensorNameTransToGgufName(tensor.Name);
+				string name = DataTrans.TensorNameTransToGgufName(tensor.Name);
 
 				if (name == tensor.Name)
 				{
@@ -84,23 +85,23 @@ namespace Converter.CheckPoints
 				Native.ggml_set_name(ggml_tensor, name);
 				if (!WriteToFileUsingStream)
 				{
-					byte[] data = PickleLoader.ReadByteFromFile(tensor);
+					byte[] data = modelLoader.ReadByteFromFile(tensor);
 					if (tensor.Shape.Count == 1)
 					{
 						if (tensor.Type == ggml_type.GGML_TYPE_F16)
 						{
-							data = CommonLib.DataTrans.Fp16ToF32Bytes(data);
+							ModelLoader.DataConverter.Fp16ToFp32Bytes(ref data);
 						}
 						else if (tensor.Type == ggml_type.GGML_TYPE_BF16)
 						{
-							data = CommonLib.DataTrans.Bf16ToF32Bytes(data);
+							ModelLoader.DataConverter.Bf16ToFp32Bytes(ref data);
 						}
 					}
 					else
 					{
 						if (tensor.Type == ggml_type.GGML_TYPE_BF16)
 						{
-							data = CommonLib.DataTrans.Bf16ToFp16Bytes(data);
+							ModelLoader.DataConverter.Bf16ToFp16Bytes(data);
 						}
 					}
 					ggml_tensor->data = Marshal.AllocHGlobal(data.Length);
@@ -134,16 +135,16 @@ namespace Converter.CheckPoints
 				for (int i = 0; i < (int)gguf_ctx->header.n_tensors; ++i)
 				{
 					gguf_tensor_info* info = &gguf_ctx->infos[i];
-					string name = Marshal.PtrToStringUTF8(info->name.data);
-					PickleLoader.CommonTensor tensor = tensors.Find(x => CommonLib.DataTrans.TensorNameTransToGgufName(x.Name) == name);
+					string name = Marshal.PtrToStringAnsi(info->name.data);
+					ModelLoader.Tensor tensor = tensors.Find(x => DataTrans.TensorNameTransToGgufName(x.Name) == name);
 					ulong size = Math.Max(info->size, gguf_ctx->alignment);
 
 					ulong size_pad = (ulong)Native.GGML_PAD((int)size, (int)gguf_ctx->alignment);
 
-					byte[] data = PickleLoader.ReadByteFromFile(tensor);
+					byte[] data = modelLoader.ReadByteFromFile(tensor);
 					Console.WriteLine($"{name} is doing, bytes to read is {data.Length}, total bytes is {totalSize}");
 
-					string transName = CommonLib.DataTrans.TensorNameTransToGgufName(tensor.Name);
+					string transName = DataTrans.TensorNameTransToGgufName(tensor.Name);
 
 					if (transName == tensor.Name)
 					{
@@ -171,13 +172,6 @@ namespace Converter.CheckPoints
 					}
 
 					totalSize = totalSize + size_pad;
-					if (size_pad != size)
-					{
-						for (ulong j = 0; j < size_pad - size; ++j)
-						{
-							data = data.Concat(new byte[] { 0 }).ToArray();
-						}
-					}
 
 					using (FileStream stream = new FileStream(outputFileName, FileMode.Append, FileAccess.Write))
 					{
@@ -185,19 +179,23 @@ namespace Converter.CheckPoints
 						{
 							if (tensor.Type == ggml_type.GGML_TYPE_F16)
 							{
-								data = CommonLib.DataTrans.Fp16ToF32Bytes(data);
+								ModelLoader.DataConverter.Fp16ToFp32Bytes(ref data);
 							}
 							else if (tensor.Type == ggml_type.GGML_TYPE_BF16)
 							{
-								data = CommonLib.DataTrans.Bf16ToF32Bytes(data);
+								ModelLoader.DataConverter.Bf16ToFp32Bytes(ref data);
 							}
 						}
 						else
 						{
 							if (tensor.Type == ggml_type.GGML_TYPE_BF16)
 							{
-								data = CommonLib.DataTrans.Bf16ToFp16Bytes(data);
+								ModelLoader.DataConverter.Bf16ToFp16Bytes(data);
 							}
+						}
+						if ((int)size_pad != data.Length)
+						{
+							data = data.Concat(new byte[(int)size_pad - data.Length]).ToArray();
 						}
 						stream.Write(data, 0, data.Length);
 					}

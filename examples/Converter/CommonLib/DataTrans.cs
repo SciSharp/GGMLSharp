@@ -5,52 +5,6 @@ namespace Converter.CommonLib
 {
 	internal class DataTrans
 	{
-		internal static byte[] Bf16ToFp16Bytes(byte[] bf16Bytes)
-		{
-			for (int j = 0; j < bf16Bytes.Length; j += 2)
-			{
-				ushort data16 = (ushort)(bf16Bytes[j] | (bf16Bytes[j + 1] << 8));
-				float data32 = Native.ggml_bf16_to_fp32(data16);
-				data16 = Native.ggml_fp32_to_fp16(data32);
-				byte[] bytes = BitConverter.GetBytes(data16);
-				bf16Bytes[j] = bytes[0];
-				bf16Bytes[j + 1] = bytes[1];
-			}
-			return bf16Bytes;
-		}
-
-		internal static byte[] Bf16ToF32Bytes(byte[] bf16Bytes)
-		{
-			byte[] f32bytes = new byte[bf16Bytes.Length * 2];
-			for (int j = 0; j < bf16Bytes.Length / 2; j++)
-			{
-				ushort data16 = (ushort)(bf16Bytes[j * 2] | (bf16Bytes[j * 2 + 1] << 8));
-				float data32 = Native.ggml_bf16_to_fp32(data16);
-				byte[] bytes = BitConverter.GetBytes(data32);
-				f32bytes[j * 4] = bytes[0];
-				f32bytes[j * 4 + 1] = bytes[1];
-				f32bytes[j * 4 + 2] = bytes[2];
-				f32bytes[j * 4 + 3] = bytes[3];
-			}
-			return f32bytes;
-		}
-
-		internal static byte[] Fp16ToF32Bytes(byte[] fp16Bytes)
-		{
-			byte[] f32bytes = new byte[fp16Bytes.Length * 2];
-			for (int j = 0; j < fp16Bytes.Length / 2; j++)
-			{
-				ushort data16 = (ushort)(fp16Bytes[j * 2] | (fp16Bytes[j * 2 + 1] << 8));
-				float data32 = Native.ggml_fp16_to_fp32(data16);
-				byte[] bytes = BitConverter.GetBytes(data32);
-				f32bytes[j * 4] = bytes[0];
-				f32bytes[j * 4 + 1] = bytes[1];
-				f32bytes[j * 4 + 2] = bytes[2];
-				f32bytes[j * 4 + 3] = bytes[3];
-			}
-			return f32bytes;
-		}
-
 		internal static string TensorNameTransToGgufName(string inputTensorName)
 		{
 			if (inputTensorName == "lm_head.weight")

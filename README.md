@@ -8,6 +8,9 @@ GGMLSharp contains all ggml shared libs and some demos.
 
 - Written in C# only
 - Only depends on ggml
+- DotNet 462 Support!
+- All Demos can use safe code only!
+
 
 ## Demos
 

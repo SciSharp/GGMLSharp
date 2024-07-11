@@ -1,138 +1,99 @@
 ﻿using GGMLSharp;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using static GGMLSharp.Structs;
 
-namespace mnist_train
+namespace MNIST_Train
 {
-	internal unsafe class Program
+	internal class Program
 	{
 		static void Main(string[] args)
 		{
 			// Loop count
-			int lp = 20;
+			int lp = 10;
 
 			// Step count
-			int sp = 1000;
+			int sp = 300;
 
 			mnist_data[] datas = LoadData(@".\Assets\t10k-images.idx3-ubyte", @".\Assets\t10k-labels-idx1-ubyte");
-			ggml_init_params init_params = new ggml_init_params
-			{
-				mem_size = 10 * 1024 * 1024,
-				mem_buffer = IntPtr.Zero,
-				no_alloc = false,
-			};
 
-			ggml_context* context = Native.ggml_init(init_params);
+			SafeGGmlContext context = new SafeGGmlContext();
 
-			ggml_tensor* input = Native.ggml_new_tensor_1d(context, ggml_type.GGML_TYPE_F32, 28 * 28);
-			ggml_tensor* fc1_weight = Native.ggml_new_tensor_2d(context, ggml_type.GGML_TYPE_F32, 784, 500);
-			ggml_tensor* fc1_bias = Native.ggml_new_tensor_1d(context, ggml_type.GGML_TYPE_F32, 500);
-			ggml_tensor* fc2_weight = Native.ggml_new_tensor_2d(context, ggml_type.GGML_TYPE_F32, 500, 10);
-			ggml_tensor* fc2_bias = Native.ggml_new_tensor_1d(context, ggml_type.GGML_TYPE_F32, 10);
+			SafeGGmlTensor input = context.NewTensor1d(Structs.GGmlType.GGML_TYPE_F32, 28 * 28);
+			SafeGGmlTensor fc1Weight = context.NewTensor2d(Structs.GGmlType.GGML_TYPE_F32, 784, 500);
+			SafeGGmlTensor fc1Bias = context.NewTensor1d(Structs.GGmlType.GGML_TYPE_F32, 500);
+			SafeGGmlTensor fc2Weight = context.NewTensor2d(Structs.GGmlType.GGML_TYPE_F32, 500, 10);
+			SafeGGmlTensor fc2Bias = context.NewTensor1d(Structs.GGmlType.GGML_TYPE_F32, 10);
 
-			Native.ggml_set_param(context, fc1_weight);
-			Native.ggml_set_param(context, fc1_bias);
-			Native.ggml_set_param(context, fc2_weight);
-			Native.ggml_set_param(context, fc2_bias);
+			fc1Weight.Name = "fc1Weight";
+			fc1Bias.Name = "fc1Bias";
+			fc2Weight.Name = "fc2Weight";
+			fc2Bias.Name = "fc2Bias";
 
-			ggml_tensor* re = Native.ggml_mul_mat(context, fc1_weight, input);
-			re = Native.ggml_add(context, re, fc1_bias);
-			re = Native.ggml_relu(context, re);
-			re = Native.ggml_mul_mat(context, fc2_weight, re);
-			re = Native.ggml_add(context, re, fc2_bias);
-			ggml_tensor* probs = Native.ggml_soft_max(context, re);
-			ggml_tensor* label = Native.ggml_new_tensor_1d(context, ggml_type.GGML_TYPE_F32, 10);
-			ggml_tensor* loss = Native.ggml_cross_entropy_loss(context, probs, label);
+			context.SetParam(fc1Weight);
+			context.SetParam(fc1Bias);
+			context.SetParam(fc2Weight);
+			context.SetParam(fc2Bias);
 
-			Native.ggml_set_name(fc1_weight, "fc1_weight");
-			Native.ggml_set_name(fc1_bias, "fc1_bias");
-			Native.ggml_set_name(fc2_weight, "fc2_weight");
-			Native.ggml_set_name(fc2_bias, "fc2_bias");
+			SafeGGmlTensor re = context.MulMat(fc1Weight, input);
+			re = context.Add(re, fc1Bias);
+			re = context.Relu(re);
+			re = context.MulMat(fc2Weight, re);
+			re = context.Add(re, fc2Bias);
+			SafeGGmlTensor probs = context.SoftMax(re);
+			SafeGGmlTensor label = context.NewTensor1d(Structs.GGmlType.GGML_TYPE_F32, 10);
+			SafeGGmlTensor loss = context.CrossEntropyLoss(probs, label);
 
-			ggml_cgraph* gf = Native.ggml_new_graph_custom(context, GGML_DEFAULT_GRAPH_SIZE, true);
-			Native.ggml_build_forward_expand(gf, loss);
+			SafeGGmlGraph gf = context.CustomNewGraph();
+			gf.BuildForwardExpend(loss);
 
 			float rnd_max = 0.1f;
 			float rnd_min = -0.1f;
-
-			SetRandomValues(fc1_weight, rnd_max, rnd_min);
-			SetRandomValues(fc1_bias, rnd_max, rnd_min);
-			SetRandomValues(fc2_weight, rnd_max, rnd_min);
-			SetRandomValues(fc2_bias, rnd_max, rnd_min);
+			fc1Weight.GetRandomTensorInFloat(rnd_max, rnd_min);
+			fc1Bias.GetRandomTensorInFloat(rnd_max, rnd_min);
+			fc2Weight.GetRandomTensorInFloat(rnd_max, rnd_min);
+			fc2Bias.GetRandomTensorInFloat(rnd_max, rnd_min);
 
 			for (int loop = 0; loop < lp; loop++)
 			{
 				for (int step = 0; step < sp; step++)
 				{
-					SetInputValues(input, datas[step].data);
+					input.SetData(datas[step].data);
+					float[] labels = new float[10];
+					labels[datas[step].label] = 1;
+					label.SetData(labels);
+					gf.Reset();
+					gf.ComputeWithGGmlContext(context, 1);
 
-					for (int i = 0; i < 10; i++)
-					{
-						Native.ggml_set_f32_1d(label, i, i == datas[step].label ? 1 : 0);
-					}
-					Native.ggml_graph_reset(gf);
-					Native.ggml_graph_compute_with_ctx(context, gf, 1);
+					float ls0 = loss.GetFloat();
+					List<float> probs_data = probs.GetDataInFloats().ToList();
+					int index = probs_data.IndexOf(probs_data.Max());
 
-					float ls0 = Native.ggml_get_f32_1d(loss, 0);
-					float* probs_data = Native.ggml_get_data_f32(probs);
+					OptimizerParameters opt_params = SafeGGmlContext.GetDefaultOptimizerParams(Structs. OptimizerType.ADAM);
+					opt_params.PrintBackwardGraph = Convert.ToByte(false);
+					opt_params.PrintForwarGraph = Convert.ToByte(false);
 
-					int index = 0;
-					float temp_max = 0;
-					for (int i = 0; i < 10; i++)
-					{
-						if (probs_data[i] > temp_max)
-						{
-							temp_max = probs_data[i];
-							index = i;
-						}
-					}
-
-					ggml_opt_params opt_params = Native.ggml_opt_default_params(ggml_opt_type.GGML_OPT_TYPE_ADAM);
-					opt_params.print_backward_graph = false;
-					opt_params.print_forward_graph = false;
-					ggml_opt_result result = Native.ggml_opt(null, opt_params, loss);
+					Structs.OptimizationResult result = SafeGGmlContext.OptimizerWithDefaultGGmlContext(opt_params, loss);
 					Console.WriteLine("loop: {0,3}, setp {1,3} label: {2}, prediction: {3}, match:{4}, loss: {5},", loop, step, datas[step].label, index, datas[step].label == index, ls0);
 				}
 			}
 
 			Console.WriteLine("Training finished, saving model to mnist_train.gguf");
-			gguf_context* gguf = Native.gguf_init_empty();
-			Native.gguf_add_tensor(gguf, fc1_weight);
-			Native.gguf_add_tensor(gguf, fc1_bias);
-			Native.gguf_add_tensor(gguf, fc2_weight);
-			Native.gguf_add_tensor(gguf, fc2_bias);
-			Native.gguf_write_to_file(gguf, "mnist_train.gguf", false);
-			Native.gguf_free(gguf);
+			SafeGGufContext gguf = SafeGGufContext.Initialize();
+			gguf.AddTensor(fc1Weight);
+			gguf.AddTensor(fc1Bias);
+			gguf.AddTensor(fc2Weight);
+			gguf.AddTensor(fc2Bias);
+			gguf.Save("mnist_train.gguf", false);
+			gguf.Free();
 
 			Console.WriteLine("Model saved, testing model......");
 
 			TestModel();
 
-		}
-
-		private static void SetRandomValues(ggml_tensor* tensor, float max, float min)
-		{
-			for (int i = 0; i < tensor->ne[0]; i++)
-			{
-				for (int j = 0; j < tensor->ne[1]; j++)
-				{
-					for (int k = 0; k < tensor->ne[2]; k++)
-					{
-						for (int l = 0; l < tensor->ne[3]; l++)
-						{
-							Native.ggml_set_f32_nd(tensor, i, j, k, l, new Random((int)DateTime.Now.Ticks).NextSingle() * (max - min) + min);
-						}
-					}
-				}
-			}
-		}
-
-		private static void SetInputValues(ggml_tensor* tensor, float[] values)
-		{
-			for (int i = 0; i < values.Length; i++)
-			{
-				Native.ggml_set_f32_1d(tensor, i, values[i]);
-			}
-
+			Console.ReadKey();
 		}
 
 		class mnist_data
@@ -175,56 +136,36 @@ namespace mnist_train
 
 		private static void TestModel()
 		{
-			ggml_init_params init_params = new ggml_init_params
-			{
-				mem_size = 10 * 1024 * 1024,
-				mem_buffer = IntPtr.Zero,
-				no_alloc = false,
-			};
-			ggml_context* ctx0 = Native.ggml_init(init_params);
+			SafeGGmlContext ctx0 = new SafeGGmlContext();
 
-			gguf_init_params gguf_init_params = new gguf_init_params
-			{
-				ctx = &ctx0,
-				no_alloc = false,
-			};
-			gguf_context* gguf = Native.gguf_init_from_file("mnist_train.gguf", gguf_init_params);
-			ggml_tensor* fc1_weight = Native.ggml_get_tensor(ctx0, "fc1_weight");
-			ggml_tensor* fc1_bias = Native.ggml_get_tensor(ctx0, "fc1_bias");
-			ggml_tensor* fc2_weight = Native.ggml_get_tensor(ctx0, "fc2_weight");
-			ggml_tensor* fc2_bias = Native.ggml_get_tensor(ctx0, "fc2_bias");
+			SafeGGufContext gguf = SafeGGufContext.InitFromFile("mnist_train.gguf", ctx0, false);
+			SafeGGmlTensor fc1Weight = ctx0.GetTensor("fc1Weight");
+			SafeGGmlTensor fc1Bias = ctx0.GetTensor("fc1Bias");
+			SafeGGmlTensor fc2Weight = ctx0.GetTensor("fc2Weight");
+			SafeGGmlTensor fc2Bias = ctx0.GetTensor("fc2Bias");
 
 
-			ggml_context* context = Native.ggml_init(init_params);
-			ggml_tensor* input = Native.ggml_new_tensor_1d(context, ggml_type.GGML_TYPE_F32, 28 * 28);
-			ggml_tensor* re = Native.ggml_mul_mat(context, fc1_weight, input);
-			re = Native.ggml_add(context, re, fc1_bias);
-			re = Native.ggml_relu(context, re);
-			re = Native.ggml_mul_mat(context, fc2_weight, re);
-			re = Native.ggml_add(context, re, fc2_bias);
-			ggml_tensor* probs = Native.ggml_soft_max(context, re);
-			ggml_cgraph* gf = Native.ggml_new_graph_custom(context, GGML_DEFAULT_GRAPH_SIZE, true);
-			Native.ggml_build_forward_expand(gf, probs);
+			SafeGGmlContext context = new SafeGGmlContext();
+			SafeGGmlTensor input = context.NewTensor1d(Structs.GGmlType.GGML_TYPE_F32, 28 * 28);
+			SafeGGmlTensor re = context.MulMat(fc1Weight, input);
+			re = context.Add(re, fc1Bias);
+			re = context.Relu(re);
+			re = context.MulMat(fc2Weight, re);
+			re = context.Add(re, fc2Bias);
+			SafeGGmlTensor probs = context.SoftMax(re);
+			SafeGGmlGraph gf = context.CustomNewGraph();
+			gf.BuildForwardExpend(probs);
 
 			mnist_data[] datas = LoadData(@".\Assets\t10k-images.idx3-ubyte", @".\Assets\t10k-labels-idx1-ubyte");
 
-			mnist_data data = datas[5006];
-			SetInputValues(input, data.data);
-			Native.ggml_graph_compute_with_ctx(context, gf, 1);
-			float* probs_data = Native.ggml_get_data_f32(probs);
-			int index = 0;
-			float temp_max = 0;
-			for (int j = 0; j < 10; j++)
-			{
-				if (probs_data[j] > temp_max)
-				{
-					temp_max = probs_data[j];
-					index = j;
-				}
-			}
+			mnist_data data = datas[5008];
+			input.SetData(data.data);
+			gf.ComputeWithGGmlContext(context, 1);
+
+			List<float> probs_data = probs.GetDataInFloats().ToList();
+			int index = probs_data.IndexOf(probs_data.Max());
 			Console.WriteLine("label: {0}, prediction: {1}, match:{2}", data.label, index, data.label == index);
 
 		}
 	}
 }
-

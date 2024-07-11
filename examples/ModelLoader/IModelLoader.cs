@@ -1,8 +1,10 @@
-﻿namespace ModelLoader
+﻿using System.Collections.Generic;
+
+namespace ModelLoader
 {
 	public interface IModelLoader
 	{
-		public List<Tensor> ReadTensorsInfoFromFile(string fileName);
-		public byte[] ReadByteFromFile(Tensor tensor);
+		List<Tensor> ReadTensorsInfoFromFile(string fileName);
+		byte[] ReadByteFromFile(Tensor tensor);
 	}
 }

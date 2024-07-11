@@ -1,12 +1,15 @@
 ﻿using GGMLSharp;
-using System.Runtime.InteropServices;
-using static GGMLSharp.Structs;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 
-namespace magika
+namespace Magika
 {
-	internal unsafe class Program
+	internal class Program
 	{
-		static string[] magika_labels ={
+
+		static string[] Labels ={
 				"ai",                 "apk",                "appleplist",         "asm",                "asp",
 				"batch",              "bmp",                "bzip",               "c",                  "cab",
 				"cat",                "chm",                "coff",               "crx",                "cs",
@@ -32,294 +35,276 @@ namespace magika
 				"yaml",               "zip",                "zlibstream"
 			};
 
-		private class magika_hparams
+		private class Hparams
 		{
-			public int block_size = 4096;
-			public int beg_size = 512;
-			public int mid_size = 512;
-			public int end_size = 512;
-			public int min_file_size_for_dl = 16;
-			public int n_label = 113;
-			public float f_norm_eps = 0.001f;
-			public int padding_token = 256;
+			public int blockSize = 4096;
+			public int begSize = 512;
+			public int midSize = 512;
+			public int endSize = 512;
+			public int minFileSizeForDl = 16;
+			public int labelCount = 113;
+			public float normEps = 0.001f;
+			public int paddingToken = 256;
 		};
 
-		private class magika_model
+		private class MagikaModel
 		{
-			~magika_model()
+			~MagikaModel()
 			{
-				Native.ggml_backend_buffer_free(buf_w);
-				Native.ggml_backend_free(backend);
-				Native.ggml_free(ctx_w);
+				backendBuffer.Free();
+				backend.Free();
+				context.Free();
 			}
 
-			public magika_hparams hparams = new magika_hparams();
+			public Hparams hparams = new Hparams();
 
-			public ggml_tensor* dense_w;
-			public ggml_tensor* dense_b;
+			public SafeGGmlTensor denseWeight;
+			public SafeGGmlTensor denseBias;
 
-			public ggml_tensor* layer_norm_gamma;
-			public ggml_tensor* layer_norm_beta;
+			public SafeGGmlTensor layerNormGamma;
+			public SafeGGmlTensor layerNormBeta;
 
-			public ggml_tensor* dense_1_w;
-			public ggml_tensor* dense_1_b;
+			public SafeGGmlTensor dense1Weight;
+			public SafeGGmlTensor dense1Bias;
 
-			public ggml_tensor* dense_2_w;
-			public ggml_tensor* dense_2_b;
+			public SafeGGmlTensor dense2Weight;
+			public SafeGGmlTensor dense2Bias;
 
-			public ggml_tensor* layer_norm_1_gamma;
-			public ggml_tensor* layer_norm_1_beta;
+			public SafeGGmlTensor layerNorm1Gamma;
+			public SafeGGmlTensor layerNorm1Beta;
 
-			public ggml_tensor* target_label_w;
-			public ggml_tensor* target_label_b;
+			public SafeGGmlTensor targetLabelWeight;
+			public SafeGGmlTensor targetLabelBias;
 
-			public ggml_backend* backend = Native.ggml_backend_cpu_init();
-			public ggml_backend_buffer* buf_w = null;
-			public ggml_context* ctx_w = null;
+			public SafeGGmlBackend backend = SafeGGmlBackend.CpuInit();
+			public SafeGGmlBackendBuffer backendBuffer;
+
+			public SafeGGmlContext context = new SafeGGmlContext(IntPtr.Zero);
 		};
 
-		private static ggml_tensor* checked_get_tensor(ggml_context* ctx, string name)
+		private static SafeGGmlTensor CheckedGetTensor(SafeGGmlContext ctx, string name)
 		{
-			ggml_tensor* tensor = Native.ggml_get_tensor(ctx, name);
-			if (null == tensor)
+			SafeGGmlTensor tensor = ctx.GetTensor(name);
+			if (tensor.IsInvalid)
 			{
 				throw new ArgumentNullException($"tensor {name} not found");
 			}
 			return tensor;
 		}
 
-		private static magika_model magika_model_load(string fname)
+		private static MagikaModel LoadModel(string fname)
 		{
-			magika_model model = new magika_model();
-			ggml_context* ctx = model.ctx_w;
+			MagikaModel model = new MagikaModel();
+			SafeGGufContext ggufContext = SafeGGufContext.InitFromFile(@"./Assets/magika.gguf", model.context, true);
 
-			gguf_init_params @params = new gguf_init_params
+			if (!ggufContext.IsHeaderMagicMatch)
 			{
-				no_alloc = true,
-				ctx = &ctx,
-			};
-
-			gguf_context* ctx_gguf = Native.gguf_init_from_file(fname, @params);
-			if (null == ctx_gguf)
-			{
-				throw new FileLoadException($"gguf_init_from_file() failed");
+				throw new FileLoadException("gguf_init_from_file failed");
 			}
-
-			model.buf_w = Native.ggml_backend_alloc_ctx_tensors(ctx, model.backend);
-			if (null == model.buf_w)
+			model.backendBuffer = model.context.BackendAllocContextTensors(model.backend);
+			if (model.backendBuffer.IsInvalid)
 			{
-				throw new Exception($"%s: ggml_backend_alloc_ctx_tensors() failed");
-				//Native.gguf_free(ctx_gguf);
+				ggufContext.Free();
+				throw new Exception("ggml_backend_alloc_ctx_tensors failed");
 			}
 
 			try
 			{
-				model.dense_w = checked_get_tensor(ctx, "dense/kernel:0");
-				model.dense_b = checked_get_tensor(ctx, "dense/bias:0");
+				model.denseWeight = CheckedGetTensor(model.context, "dense/kernel:0");
+				model.denseBias = CheckedGetTensor(model.context, "dense/bias:0");
 
-				model.layer_norm_gamma = checked_get_tensor(ctx, "layer_normalization/gamma:0");
-				model.layer_norm_beta = checked_get_tensor(ctx, "layer_normalization/beta:0");
+				model.layerNormGamma = CheckedGetTensor(model.context, "layer_normalization/gamma:0");
+				model.layerNormBeta = CheckedGetTensor(model.context, "layer_normalization/beta:0");
 
-				model.dense_1_w = checked_get_tensor(ctx, "dense_1/kernel:0");
-				model.dense_1_b = checked_get_tensor(ctx, "dense_1/bias:0");
+				model.dense1Weight = CheckedGetTensor(model.context, "dense_1/kernel:0");
+				model.dense1Bias = CheckedGetTensor(model.context, "dense_1/bias:0");
 
-				model.dense_2_w = checked_get_tensor(ctx, "dense_2/kernel:0");
-				model.dense_2_b = checked_get_tensor(ctx, "dense_2/bias:0");
+				model.dense2Weight = CheckedGetTensor(model.context, "dense_2/kernel:0");
+				model.dense2Bias = CheckedGetTensor(model.context, "dense_2/bias:0");
 
-				model.layer_norm_1_gamma = checked_get_tensor(ctx, "layer_normalization_1/gamma:0");
-				model.layer_norm_1_beta = checked_get_tensor(ctx, "layer_normalization_1/beta:0");
+				model.layerNorm1Gamma = CheckedGetTensor(model.context, "layer_normalization_1/gamma:0");
+				model.layerNorm1Beta = CheckedGetTensor(model.context, "layer_normalization_1/beta:0");
 
-				model.target_label_w = checked_get_tensor(ctx, "target_label/kernel:0");
-				model.target_label_b = checked_get_tensor(ctx, "target_label/bias:0");
+				model.targetLabelWeight = CheckedGetTensor(model.context, "target_label/kernel:0");
+				model.targetLabelBias = CheckedGetTensor(model.context, "target_label/bias:0");
 			}
 			catch (Exception ex)
 			{
 				Console.WriteLine(ex.Message);
-				Native.gguf_free(ctx_gguf);
+				ggufContext.Free();
 				return null;
 			}
 
 			using (FileStream fs = new FileStream(fname, FileMode.Open, FileAccess.Read))
 			{
-				int n_tensors = Native.gguf_get_n_tensors(ctx_gguf);
-
-				for (int i = 0; i < n_tensors; i++)
+				for (ulong i = 0; i < ggufContext.TensorsCount; i++)
 				{
-					string? name = Native.gguf_get_tensor_name(ctx_gguf, i);
+					string name = ggufContext.GetTensorName((int)i);
 
-					ggml_tensor* tensor = Native.ggml_get_tensor(ctx, name);
-					ulong offs = Native.gguf_get_data_offset(ctx_gguf) + Native.gguf_get_tensor_offset(ctx_gguf, i);
+					SafeGGmlTensor tensor = model.context.GetTensor(name);
+					ulong offs = ggufContext.GetDataOffset() + ggufContext.GetTensorOffset((int)i);
 
-
-					ulong n_bytes = Native.ggml_nbytes(tensor);
-					byte[] buf = new byte[n_bytes];
-
-
+					byte[] buf = new byte[(long)tensor.ElementsSize * tensor.ElementsCount];
 					fs.Seek((long)offs, SeekOrigin.Begin);
 					int bytesRead = fs.Read(buf, 0, buf.Length);
-					IntPtr buf_data = Marshal.UnsafeAddrOfPinnedArrayElement(buf, 0);
-
-					Native.ggml_backend_tensor_set(tensor, buf_data, 0, (ulong)bytesRead);
+					tensor.SetBackend(buf);
 				}
 			}
 
-			Native.gguf_free(ctx_gguf);
+			//ggufContext.Free();
 
 			return model;
 		}
 
-		private static ggml_cgraph* magika_graph(magika_model model)
+		private static SafeGGmlGraph MagikaGraph(MagikaModel model)
 		{
-			int GGML_DEFAULT_GRAPH_SIZE = 2048;
-			magika_hparams hparams = model.hparams;
-			ulong buf_size = Native.ggml_tensor_overhead() * (ulong)GGML_DEFAULT_GRAPH_SIZE + Native.ggml_graph_overhead();
+			Hparams hparams = model.hparams;
 
-			ggml_init_params @params = new ggml_init_params
-			{
-				mem_buffer = IntPtr.Zero,
-				mem_size = buf_size,
-				no_alloc = true,
-			};
+			SafeGGmlContext ggmlContext = new SafeGGmlContext(IntPtr.Zero, NoAllocateMemory: true);
+			SafeGGmlGraph graph = ggmlContext.NewGraph();
 
-			ggml_context* ctx = Native.ggml_init(@params);
-			ggml_cgraph* gf = Native.ggml_new_graph(ctx);
+			SafeGGmlTensor input = ggmlContext.NewTensor3d(Structs.GGmlType.GGML_TYPE_F32, 257, 1536, 1); // one-hot
+			input.Name = "input";
+			input.SetInput();
 
-			ggml_tensor* input = Native.ggml_new_tensor_3d(ctx, ggml_type.GGML_TYPE_F32, 257, 1536, 1); // one-hot
-			Native.ggml_set_name(input, "input");
-			Native.ggml_set_input(input);
-
-			ggml_tensor* cur;
+			SafeGGmlTensor cur;
 
 			// dense
-			cur = Native.ggml_mul_mat(ctx, model.dense_w, input);
-			cur = Native.ggml_add(ctx, cur, model.dense_b); // [128, 1536, n_files]
-			cur = Native.ggml_gelu(ctx, cur);
+			cur = ggmlContext.MulMat(model.denseWeight, input);
+			cur = ggmlContext.Add(cur, model.denseBias); // [128, 1536, n_files]
+			cur = ggmlContext.Gelu(cur);
 
 			// reshape
-			cur = Native.ggml_reshape_3d(ctx, cur, 512, 384, 1); // [384, 512, n_files]
-			cur = Native.ggml_cont(ctx, Native.ggml_transpose(ctx, cur));
+			cur = ggmlContext.Reshape3d(cur, 512, 384, 1); // [384, 512, n_files]
+			cur = ggmlContext.Cont(ggmlContext.Transpose(cur));
 
 			// layer normalization
-			cur = Native.ggml_norm(ctx, cur, hparams.f_norm_eps);
-			cur = Native.ggml_mul(ctx, cur, model.layer_norm_gamma); // [384, 512, n_files]
-			cur = Native.ggml_add(ctx, cur, model.layer_norm_beta);  // [384, 512, n_files]
+			cur = ggmlContext.Normal(cur, hparams.normEps);
+			cur = ggmlContext.Mul(cur, model.layerNormGamma); // [384, 512, n_files]
+			cur = ggmlContext.Add(cur, model.layerNormBeta);  // [384, 512, n_files]
 
 			// dense_1
-			cur = Native.ggml_cont(ctx, Native.ggml_transpose(ctx, cur));
-			cur = Native.ggml_mul_mat(ctx, model.dense_1_w, cur);
-			cur = Native.ggml_add(ctx, cur, model.dense_1_b); // [256, 384, n_files]
-			cur = Native.ggml_gelu(ctx, cur);
+			cur = ggmlContext.Cont(ggmlContext.Transpose(cur));
+			cur = ggmlContext.MulMat(model.dense1Weight, cur);
+			cur = ggmlContext.Add(cur, model.dense1Bias); // [256, 384, n_files]
+			cur = ggmlContext.Gelu(cur);
 
 			// dense_2
-			cur = Native.ggml_mul_mat(ctx, model.dense_2_w, cur);
-			cur = Native.ggml_add(ctx, cur, model.dense_2_b); // [256, 384, n_files]
-			cur = Native.ggml_gelu(ctx, cur);
+			cur = ggmlContext.MulMat(model.dense2Weight, cur);
+			cur = ggmlContext.Add(cur, model.dense2Bias); // [256, 384, n_files]
+			cur = ggmlContext.Gelu(cur);
 
 			// global_max_pooling1d
-			cur = Native.ggml_cont(ctx, Native.ggml_transpose(ctx, cur)); // [384, 256, n_files]
-			cur = Native.ggml_pool_1d(ctx, cur, ggml_op_pool.GGML_OP_POOL_MAX, 384, 384, 0); // [1, 256, n_files]
-			cur = Native.ggml_reshape_2d(ctx, cur, 256, 1); // [256, n_files]
+			cur = ggmlContext.Cont(ggmlContext.Transpose(cur)); // [384, 256, n_files]
+			cur = ggmlContext.Pool1d(cur, Structs.GGmlOpPool.GGML_OP_POOL_MAX, 384, 384, 0); // [1, 256, n_files]
+			cur = ggmlContext.Reshape2d(cur, 256, 1); // [256, n_files]
 
 			// layer normalization 1
-			cur = Native.ggml_norm(ctx, cur, hparams.f_norm_eps);
-			cur = Native.ggml_mul(ctx, cur, model.layer_norm_1_gamma); // [256, n_files]
-			cur = Native.ggml_add(ctx, cur, model.layer_norm_1_beta);  // [256, n_files]
+			cur = ggmlContext.Normal(cur, hparams.normEps);
+			cur = ggmlContext.Mul(cur, model.layerNorm1Gamma); // [256, n_files]
+			cur = ggmlContext.Add(cur, model.layerNorm1Beta);  // [256, n_files]
 
 			// target_label
-			cur = Native.ggml_mul_mat(ctx, model.target_label_w, cur);
-			cur = Native.ggml_add(ctx, cur, model.target_label_b); // [n_label, n_files]
-			cur = Native.ggml_soft_max(ctx, cur); // [n_label, n_files]
-			Native.ggml_set_name(cur, "target_label_probs");
-			Native.ggml_set_output(cur);
+			cur = ggmlContext.MulMat(model.targetLabelWeight, cur);
+			cur = ggmlContext.Add(cur, model.targetLabelBias); // [labelCount, n_files]
+			cur = ggmlContext.SoftMax(cur); // [labelCount, n_files]
+			cur.Name = "targetLabelProbs";
+			cur.SetOutput();
 
-			Native.ggml_build_forward_expand(gf, cur);
+			graph.BuildForwardExpend(cur);
 
-			return gf;
+			return graph;
 		}
 
-		private static float[] magika_eval(magika_model model, string fname)
+		private static float[] Eval(MagikaModel model, string fname)
 		{
-			magika_hparams hparams = model.hparams;
-			ggml_gallocr* alloc = Native.ggml_gallocr_new(Native.ggml_backend_get_default_buffer_type(model.backend));
+			Hparams hparams = model.hparams;
+			SafeGGmlGraphAllocr alloc = new SafeGGmlGraphAllocr(model.backend.GetDefaultBufferType());
 
-			ggml_cgraph* gf = magika_graph(model);
+			SafeGGmlGraph graph = MagikaGraph(model);
 
-			if (!Native.ggml_gallocr_alloc_graph(alloc, gf))
+			if (!graph.GraphAllocate(alloc))
 			{
 				throw new Exception("ggml_gallocr_alloc_graph() failed");
 			}
 
-			ggml_tensor* input = Native.ggml_graph_get_tensor(gf, "input");
+			SafeGGmlTensor input = graph.GetTensor("input");
 
-			var buf = new List<int>(Enumerable.Repeat(hparams.padding_token, 1536));
+			var buf = new List<int>(Enumerable.Repeat(hparams.paddingToken, 1536));
 
 			using (FileStream fileStream = new FileStream(fname, FileMode.Open, FileAccess.Read))
 			{
 				var fsize = fileStream.Length;
-				long size = Math.Max(Math.Max(hparams.mid_size, hparams.end_size), hparams.beg_size);
+				long size = Math.Max(Math.Max(hparams.midSize, hparams.endSize), hparams.begSize);
 				byte[] read_buf = new byte[size];
 
 				// Read	beg
-				int n_read = fileStream.Read(read_buf, 0, hparams.beg_size);
-				for (int j = 0; j < n_read; j++)
+				int bytesToRead = fileStream.Read(read_buf, 0, hparams.begSize);
+				for (int j = 0; j < bytesToRead; j++)
 				{
 					buf[j] = read_buf[j];
 				}
 
 				// Read mid
-				var midOffs = Math.Max(0, (int)(fsize - hparams.mid_size) / 2);
+				var midOffs = Math.Max(0, (int)(fsize - hparams.midSize) / 2);
 				fileStream.Seek(midOffs, SeekOrigin.Begin);
-				n_read = fileStream.Read(read_buf, 0, hparams.mid_size);
-				for (int j = 0; j < n_read; j++)
+				bytesToRead = fileStream.Read(read_buf, 0, hparams.midSize);
+				for (int j = 0; j < bytesToRead; j++)
 				{
 					// pad at both ends
-					int mid_idx = hparams.beg_size + (hparams.mid_size / 2) - n_read / 2 + j;
+					int mid_idx = hparams.begSize + (hparams.midSize / 2) - bytesToRead / 2 + j;
 					buf[mid_idx] = read_buf[j];
 				}
 
 				// Read end
 
-				var endOffs = Math.Max(0, fsize - hparams.end_size);
+				var endOffs = Math.Max(0, fsize - hparams.endSize);
 				fileStream.Seek(endOffs, SeekOrigin.Begin);
-				n_read = fileStream.Read(read_buf, 0, hparams.end_size);
-				for (int j = 0; j < n_read; j++)
+				bytesToRead = fileStream.Read(read_buf, 0, hparams.endSize);
+				for (int j = 0; j < bytesToRead; j++)
 				{
 					// pad at the beginning
-					int end_idx = hparams.beg_size + hparams.mid_size + hparams.end_size - n_read + j;
+					int end_idx = hparams.begSize + hparams.midSize + hparams.endSize - bytesToRead + j;
 					buf[end_idx] = read_buf[j];
 				}
 			}
 
-			var inpBytes = hparams.beg_size + hparams.mid_size + hparams.end_size;
+			var inpBytes = hparams.begSize + hparams.midSize + hparams.endSize;
 			var oneHot = new float[257 * inpBytes];
 			for (int j = 0; j < inpBytes; j++)
 			{
 				oneHot[257 * j + buf[j]] = 1.0f;
 			}
 
-			Native.ggml_backend_tensor_set(input, Marshal.UnsafeAddrOfPinnedArrayElement(oneHot, 0), 0, (ulong)(257 * inpBytes * sizeof(float)));
-			if (Native.ggml_backend_graph_compute(model.backend, gf) != ggml_status.GGML_STATUS_SUCCESS)
+			input.SetBackend(oneHot);
+			if (graph.BackendCompute(model.backend) != Structs.GGmlStatus.GGML_STATUS_SUCCESS)
 			{
 				throw new Exception("ggml_backend_graph_compute() failed");
 			}
 
-			ggml_tensor* target_label_probs = Native.ggml_graph_get_tensor(gf, "target_label_probs");
+			SafeGGmlTensor targetLabelProbs = graph.GetTensor("targetLabelProbs");
 
-			float[] probs = new float[hparams.n_label];
-			Native.ggml_backend_tensor_get(target_label_probs, Marshal.UnsafeAddrOfPinnedArrayElement(probs, 0), 0, (ulong)hparams.n_label * sizeof(float));
-
+			byte[] bytes = targetLabelProbs.GetBackend();
+			float[] probs = DataConverter.ConvertToFloats(bytes);
 			return probs;
 		}
 
+		struct result
+		{
+			public string label;
+			public float score;
+		}
 
 		static void Main(string[] args)
 		{
-			magika_model model = magika_model_load(@".\Assets\magika.gguf");
-			float[] result_tensor = magika_eval(model, @".\Assets\test");
+			MagikaModel model = LoadModel(@".\Assets\magika.gguf");
+			Console.WriteLine("Loaded model");
+
+			float[] result = Eval(model, @".\Assets\test");
 			List<result> results = new List<result>();
-			for (int i = 0; i < result_tensor.Length; i++)
+			for (int i = 0; i < result.Length; i++)
 			{
-				results.Add(new result { label = magika_labels[i], score = result_tensor[i] });
+				results.Add(new result { label = Labels[i], score = result[i] });
 			}
 
 			results.Sort((a, b) => b.score.CompareTo(a.score));
@@ -327,12 +312,7 @@ namespace magika
 			{
 				Console.WriteLine("{0}: {1}", results[i].label, results[i].score);
 			}
-		}
-
-		class result
-		{
-			public string label;
-			public float score;
+			Console.ReadKey();
 		}
 	}
 }

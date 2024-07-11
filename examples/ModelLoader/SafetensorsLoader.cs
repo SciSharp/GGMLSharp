@@ -1,5 +1,8 @@
-﻿using GGMLSharp;
-using Newtonsoft.Json.Linq;
+﻿using Newtonsoft.Json.Linq;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using System.Text;
 using static GGMLSharp.Structs;
 
@@ -20,7 +23,7 @@ namespace ModelLoader
 				// Safetensors file first 8 byte to int64 is the header length
 				byte[] headerBlock = new byte[8];
 				stream.Read(headerBlock, 0, 8);
-				long headerSize = BitConverter.ToInt64(headerBlock);
+				long headerSize = BitConverter.ToInt64(headerBlock, 0);
 				if (len < 8 + headerSize || headerSize <= 0 || headerSize > 100_000_000)
 				{
 					throw new ArgumentOutOfRangeException($"File cannot be valid safetensors: header len wrong, size:{headerSize}");
@@ -33,17 +36,11 @@ namespace ModelLoader
 				string header = Encoding.UTF8.GetString(headerBytes);
 				long bodyPosition = stream.Position;
 				JToken token = JToken.Parse(header);
-				ggml_init_params @params = new ggml_init_params
-				{
-					mem_size = (ulong)(token.Children().Count() + 1) * Native.ggml_tensor_overhead(),
-					mem_buffer = IntPtr.Zero,
-					no_alloc = true
-				};
 
 				List<Tensor> tensors = new List<Tensor>();
-				foreach ((string? key, JToken? subToken) in token.ToObject<Dictionary<string, JToken>>())
+				foreach (var sub in token.ToObject<Dictionary<string, JToken>>())
 				{
-					Dictionary<string, JToken> value = subToken.ToObject<Dictionary<string, JToken>>();
+					Dictionary<string, JToken> value = sub.Value.ToObject<Dictionary<string, JToken>>();
 					value.TryGetValue("data_offsets", out JToken offsets);
 					value.TryGetValue("dtype", out JToken dtype);
 					value.TryGetValue("shape", out JToken shape);
@@ -56,19 +53,19 @@ namespace ModelLoader
 					long[] shapeArray = shape.ToObject<long[]>();
 					if (shapeArray.Length < 1)
 					{
-						shapeArray = [1];
+						shapeArray = new long[] { 1 };
 					}
-					ggml_type ggml_type = ggml_type.GGML_TYPE_F32;
+					GGmlType ggml_type = GGmlType.GGML_TYPE_F32;
 					switch (dtype.ToString())
 					{
-						case "I8": ggml_type = ggml_type.GGML_TYPE_I8; break;
-						case "I16": ggml_type = ggml_type.GGML_TYPE_I16; break;
-						case "I32": ggml_type = ggml_type.GGML_TYPE_I32; break;
-						case "I64": ggml_type = ggml_type.GGML_TYPE_I64; break;
-						case "BF16": ggml_type = ggml_type.GGML_TYPE_BF16; break;
-						case "F16": ggml_type = ggml_type.GGML_TYPE_F16; break;
-						case "F32": ggml_type = ggml_type.GGML_TYPE_F32; break;
-						case "F64": ggml_type = ggml_type.GGML_TYPE_F64; break;
+						case "I8": ggml_type = GGmlType.GGML_TYPE_I8; break;
+						case "I16": ggml_type = GGmlType.GGML_TYPE_I16; break;
+						case "I32": ggml_type = GGmlType.GGML_TYPE_I32; break;
+						case "I64": ggml_type = GGmlType.GGML_TYPE_I64; break;
+						case "BF16": ggml_type = GGmlType.GGML_TYPE_BF16; break;
+						case "F16": ggml_type = GGmlType.GGML_TYPE_F16; break;
+						case "F32": ggml_type = GGmlType.GGML_TYPE_F32; break;
+						case "F64": ggml_type = GGmlType.GGML_TYPE_F64; break;
 						case "U8":
 						case "U16":
 						case "U32":
@@ -80,7 +77,7 @@ namespace ModelLoader
 
 					Tensor tensor = new Tensor
 					{
-						Name = key,
+						Name = sub.Key,
 						Type = ggml_type,
 						Shape = shapeArray.ToList(),
 						Offset = offsetArray.ToList(),

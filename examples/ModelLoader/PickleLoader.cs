@@ -1,18 +1,25 @@
 ﻿using GGMLSharp;
+using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.IO;
 using System.IO.Compression;
-using static GGMLSharp.Structs;
+using System.Linq;
 
 namespace ModelLoader
 {
 	public class PickleLoader : IModelLoader
 	{
+		private ZipArchive zip;
+		private ReadOnlyCollection<ZipArchiveEntry> entries;
 
 		public List<Tensor> ReadTensorsInfoFromFile(string fileName)
 		{
 			List<Tensor> tensors = new List<Tensor>();
 
-			ZipArchive zip = ZipFile.OpenRead(fileName);
-			ZipArchiveEntry headerEntry = zip.Entries.First(e => e.Name == "data.pkl");
+			zip = ZipFile.OpenRead(fileName);
+			entries = zip.Entries;
+			ZipArchiveEntry headerEntry = entries.First(e => e.Name == "data.pkl");
 			byte[] headerBytes = new byte[headerEntry.Length];
 			// Header is always small enough to fit in memory, so we can read it all at once
 			using (Stream stream = headerEntry.Open())
@@ -30,7 +37,7 @@ namespace ModelLoader
 			bool readStrides = false;
 			bool binPersid = false;
 
-			Tensor tensor = new Tensor() { FileName = fileName, Offset = [0] };
+			Tensor tensor = new Tensor() { FileName = fileName, Offset = { 0 } };
 
 			int deepth = 0;
 
@@ -49,20 +56,20 @@ namespace ModelLoader
 					case (byte)'h':  // BINGET         = b'h'   #   "    "    "    "   "   "  ;   "    " 1-byte arg
 						{
 							int id = headerBytes[index + 1];
-							string? precision = BinPut.GetValueOrDefault(id);
+							BinPut.TryGetValue(id, out string precision);
 							if (precision != null)
 							{
 								if (precision.Contains("FloatStorage"))
 								{
-									tensor.Type = ggml_type.GGML_TYPE_F32;
+									tensor.Type = Structs.GGmlType.GGML_TYPE_F32;
 								}
 								else if (precision.Contains("HalfStorage"))
 								{
-									tensor.Type = ggml_type.GGML_TYPE_F16;
+									tensor.Type = Structs.GGmlType.GGML_TYPE_F16;
 								}
 								else if (precision.Contains("BFloat16Storage"))
 								{
-									tensor.Type = ggml_type.GGML_TYPE_BF16;
+									tensor.Type = Structs.GGmlType.GGML_TYPE_BF16;
 								}
 							}
 							index++;
@@ -184,21 +191,21 @@ namespace ModelLoader
 
 							// precision is stored in the global variable
 							// next tensor will read the precision
-							// so we can set the type here
+							// so we can set the Type here
 
 							BinPut.Add(headerBytes[index + 2], global);
 
 							if (global.Contains("FloatStorage"))
 							{
-								tensor.Type = ggml_type.GGML_TYPE_F32;
+								tensor.Type = Structs.GGmlType.GGML_TYPE_F32;
 							}
 							else if (global.Contains("HalfStorage"))
 							{
-								tensor.Type = ggml_type.GGML_TYPE_F16;
+								tensor.Type = Structs.GGmlType.GGML_TYPE_F16;
 							}
 							else if (global.Contains("BFloat16Storage"))
 							{
-								tensor.Type = ggml_type.GGML_TYPE_BF16;
+								tensor.Type = Structs.GGmlType.GGML_TYPE_BF16;
 							}
 							break;
 						}
@@ -234,13 +241,13 @@ namespace ModelLoader
 							if (string.IsNullOrEmpty(tensor.DataNameInZipFile))
 							{
 								tensor.DataNameInZipFile = tensors.Last().DataNameInZipFile;
-								tensor.Offset = [(ulong)tensor.Shape[0] * Native.ggml_type_size(tensor.Type)];
+								tensor.Offset = new List<ulong> { (ulong)tensor.Shape[0] * Common.GetGGmlTypeSize(tensor.Type) };
 								tensor.Shape.RemoveAt(0);
 								//tensor.offset = tensors.Last().
 							}
 							tensors.Add(tensor);
 
-							tensor = new Tensor() { FileName = fileName, Offset = [0] };
+							tensor = new Tensor() { FileName = fileName, Offset = { 0 } };
 							readStrides = false;
 							binPersid = false;
 						}
@@ -253,7 +260,7 @@ namespace ModelLoader
 				}
 				index++;
 			}
-			Tensor? metaTensor = tensors.Find(x => x.Name.Contains("_metadata"));
+			Tensor metaTensor = tensors.Find(x => x.Name.Contains("_metadata"));
 			if (metaTensor != null)
 			{
 				tensors.Remove(metaTensor);
@@ -263,23 +270,33 @@ namespace ModelLoader
 
 		public byte[] ReadByteFromFile(Tensor tensor)
 		{
-			ZipArchive zip = ZipFile.OpenRead(tensor.FileName);
-			ZipArchiveEntry dataEntry = zip.Entries.First(e => e.Name == tensor.DataNameInZipFile);
+			if (entries is null)
+			{
+				throw new ArgumentNullException(nameof(entries));
+			}
 
+			ZipArchiveEntry dataEntry = entries.First(e => e.Name == tensor.DataNameInZipFile);
 			long i = 1;
 			foreach (var ne in tensor.Shape)
 			{
 				i *= ne;
 			}
-			ulong length = Native.ggml_type_size(tensor.Type) * (ulong)i;
+			ulong length = Common.GetGGmlTypeSize(tensor.Type) * (ulong)i;
 			byte[] data = new byte[dataEntry.Length];
+
 			using (Stream stream = dataEntry.Open())
 			{
 				stream.Read(data, 0, data.Length);
 			}
 
-			data = data.Take(new Range((int)tensor.Offset[0], (int)(tensor.Offset[0] + length))).ToArray();
-			return data;
+			//data = data.Take(new Range((int)tensor.Offset[0], (int)(tensor.Offset[0] + length))).ToArray();
+			byte[] result = new byte[length];
+			for (int j = 0; j < (int)length; j++)
+			{
+				result[j] = data[j + (int)tensor.Offset[0]];
+			}
+			return result;
+			//return data;
 		}
 	}
 }

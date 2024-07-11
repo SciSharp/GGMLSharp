@@ -1,8 +1,9 @@
 ﻿using ProtoBuf;
+using System.Collections.Generic;
 
 namespace Converter.CommonLib
 {
-    [ProtoContract]
+	[ProtoContract]
     internal class Sentencepiece
     {
         [ProtoMember(1)]
@@ -79,7 +80,7 @@ namespace Converter.CommonLib
             [ProtoMember(2)]
             public string model_prefix { get; set; }
 
-            // Model type. only have UNIGRAM now.
+            // Model Type. only have UNIGRAM now.
             public enum ModelType
             {
                 UNIGRAM = 1,  // Unigram language model with dynamic algorithm
@@ -186,7 +187,7 @@ namespace Converter.CommonLib
             // When `split_by_unicode_script` is true, we do not allow sentence piece to
             // include multiple Unicode scripts, e.g. "F1" is not a valid piece.
             // Exception: CJ characters (Hiragana/Katakana/Han) are all handled
-            // as one script type, since Japanese word can consist of multiple scripts.
+            // as one script Type, since Japanese word can consist of multiple scripts.
             // This exception is always applied regardless of the accept-language
             // parameter.
             [ProtoMember(21)]
@@ -275,7 +276,7 @@ namespace Converter.CommonLib
             public bool hard_vocab_limit { get; set; } = true;
 
             // use all symbols for vocab extraction. This flag is valid
-            // if model type is either CHAR or WORD
+            // if model Type is either CHAR or WORD
             [ProtoMember(34)]
             public bool use_all_vocab { get; set; } = false;
 

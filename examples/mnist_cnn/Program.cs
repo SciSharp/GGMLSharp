@@ -31,7 +31,7 @@ namespace MNIST_CNN
 			}
 
 			MNISTmodel model = MNISTmodelLoad(@".\Assets\mnist-cnn-model.gguf");
-			int prediction = mnist_eval(model, 1, digit, string.Empty);
+			int prediction = Eval(model, 1, digit, string.Empty);
 			Console.WriteLine("Prediction: {0}", prediction);
 			Console.ReadKey();
 		}
@@ -63,7 +63,7 @@ namespace MNIST_CNN
 			return model;
 		}
 
-		private static int mnist_eval(MNISTmodel model, int n_threads, float[] digit, string fname_cgraph)
+		private static int Eval(MNISTmodel model, int threads, float[] digit, string graphName)
 		{
 			SafeGGmlContext context = new SafeGGmlContext();
 			SafeGGmlGraph graph = context.NewGraph();
@@ -72,15 +72,13 @@ namespace MNIST_CNN
 			input.SetData(digit);
 			input.Name = "input";
 
-			SafeGGmlTensor cur = context.Conv2d(model.conv2d1Kernel, input);
-			cur = context.Add(cur, model.conv2d1Bias);
-
+			SafeGGmlTensor cur = context.Conv2d(input, model.conv2d1Kernel, model.conv2d1Bias);
 			cur = context.Relu(cur);
 			// Output shape after Conv2D: (26 26 32 1)
 			cur = context.Pool2d(cur);
 			// Output shape after MaxPooling2D: (13 13 32 1)
-			cur = context.Conv2d(model.conv2d2Kernel, cur);
-			cur = context.Add(cur, model.conv2d2Bias);
+			cur = context.Conv2d(cur,model.conv2d2Kernel , model.conv2d2Bias);
+
 			cur = context.Relu(cur);
 			// Output shape after Conv2D: (11 11 64 1)
 			cur = context.Pool2d(cur);
@@ -90,8 +88,8 @@ namespace MNIST_CNN
 			// Output shape after permute: (64 5 5 1)
 			cur = context.Reshape2d(cur, 1600, 1);
 			// Final Dense layer
-			cur = context.MulMat(model.denseWeight, cur);
-			cur = context.Add(cur, model.denseBias);
+			cur = context.Linear(cur, model.denseWeight, model.denseBias);
+
 			SafeGGmlTensor probs = context.SoftMax(cur);
 			probs.Name = "probs";
 
@@ -99,7 +97,7 @@ namespace MNIST_CNN
 
 			Stopwatch stopwatch = Stopwatch.StartNew();
 
-			graph.ComputeWithGGmlContext(context, n_threads);
+			graph.ComputeWithGGmlContext(context, threads);
 
 			stopwatch.Stop();
 			Console.WriteLine("compute Time: {0} ticks.", stopwatch.ElapsedTicks);
@@ -107,12 +105,12 @@ namespace MNIST_CNN
 			//ggml_graph_print(&graph);
 			//Native.ggml_graph_dump_dot(graph, null, "mnist-cnn.dot");
 
-			if (!string.IsNullOrEmpty(fname_cgraph))
+			if (!string.IsNullOrEmpty(graphName))
 			{
 				// export the compute graph for later use
 				// see the "mnist-cpu" example
-				graph.Export(fname_cgraph);
-				Console.WriteLine("exported compute graph to {0}\n", fname_cgraph);
+				graph.Export(graphName);
+				Console.WriteLine("exported compute graph to {0}\n", graphName);
 			}
 			float[] probs_list = probs.GetDataInFloats();
 			int prediction = probs_list.ToList().IndexOf(probs_list.Max());

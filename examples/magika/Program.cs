@@ -97,6 +97,26 @@ namespace Magika
 			MagikaModel model = new MagikaModel();
 			SafeGGufContext ggufContext = SafeGGufContext.InitFromFile(@"./Assets/magika.gguf", model.context, true);
 
+
+			if (SafeGGmlBackend.HasCuda)
+			{
+				model.backend = SafeGGmlBackend.CudaInit(); // init device 0
+			}
+			else
+			{
+				model.backend = SafeGGmlBackend.CpuInit();
+			}
+
+			if (model.backend == null)
+			{
+				Console.WriteLine("ggml_backend_cuda_init() failed.");
+				Console.WriteLine("we while use ggml_backend_cpu_init() instead.");
+
+				// if there aren't GPU Backends fallback to CPU backend
+				model.backend = SafeGGmlBackend.CpuInit();
+			}
+
+
 			if (!ggufContext.IsHeaderMagicMatch)
 			{
 				throw new FileLoadException("gguf_init_from_file failed");

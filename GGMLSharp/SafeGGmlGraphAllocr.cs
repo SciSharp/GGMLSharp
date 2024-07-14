@@ -48,10 +48,6 @@ namespace GGMLSharp
 			}
 		}
 
-		public bool Reserve(SafeGGmlGraph graph)
-		{
-			return Native.ggml_gallocr_reserve(this, graph);
-		}
 
 		public ulong GetBufferSize(int index)
 		{

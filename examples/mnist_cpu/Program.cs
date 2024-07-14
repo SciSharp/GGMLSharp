@@ -4,7 +4,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Runtime.InteropServices;
 using static GGMLSharp.Structs;
 
 
@@ -39,24 +38,17 @@ namespace MNIST_CPU
 
 		private static int Eval(Model model, int n_threads, float[] digit)
 		{
-			SafeGGmlGraph graph = model.context.NewGraph();
+			model.input.SetBackend(digit);
+			// calculate the temporaly memory required to compute
+			SafeGGmlGraphAllocr allocr = new SafeGGmlGraphAllocr(model.backend.GetDefaultBufferType());
 
-			SafeGGmlTensor input = model.context.NewTensor1d(GGmlType.GGML_TYPE_F32, 28 * 28);
-			input.SetData(digit);
-			input.Name = "input";
+			// create the worst case graph for memory usage estimation
+			BuildGraph(model);
+			model.graph.Reserve(allocr);
+			ulong mem_size = allocr.GetBufferSize(0);
+			Console.WriteLine($"compute buffer size: {mem_size / 1024.0} KB");
 
-			SafeGGmlTensor re = model.context.MulMat(model.fc1Weight, input);
-			re = model.context.Add(re, model.fc1Bias);
-			re = model.context.Relu(re);
-			re = model.context.MulMat(model.fc2Weight, re);
-			re = model.context.Add(re, model.fc2Bias);
-			SafeGGmlTensor probs = model.context.SoftMax(re);
-			probs.Name = "probs";
-
-			graph.BuildForwardExpend(probs);
-
-			graph.ComputeWithGGmlContext(model.context, n_threads);
-
+			SafeGGmlTensor probs = Compute(model, allocr);
 			List<float> probsList = probs.GetDataInFloats().ToList(); ;
 			int prediction = probsList.IndexOf(probsList.Max());
 			model.context.Free();
@@ -67,56 +59,109 @@ namespace MNIST_CPU
 
 		public class Model
 		{
+			public SafeGGmlTensor input;
 			public SafeGGmlTensor fc2Weight;
 			public SafeGGmlTensor fc2Bias;
 			public SafeGGmlTensor fc1Weight;
 			public SafeGGmlTensor fc1Bias;
 			public SafeGGmlContext context;
+			public SafeGGmlBackend backend;
+			public SafeGGmlBackendBuffer buffer;
+			public SafeGGmlGraph graph;
 		}
 
 		public static Model LoadModel(string path)
 		{
-			SafeGGmlContext context = new SafeGGmlContext();
-			ModelLoader.PickleLoader pickleLoader = new ModelLoader.PickleLoader();
-			List<ModelLoader.Tensor> tensors = pickleLoader.ReadTensorsInfoFromFile(path);
+			PickleLoader pickleLoader = new PickleLoader();
+			List<Tensor> tensors = pickleLoader.ReadTensorsInfoFromFile(path);
 			Model model = new Model();
-			model.context = context;
+
+			if (SafeGGmlBackend.HasCuda)
+			{
+				model.backend = SafeGGmlBackend.CudaInit(); // init device 0
+			}
+			else
+			{
+				model.backend = SafeGGmlBackend.CpuInit();
+			}
+
+			if (model.backend == null)
+			{
+				Console.WriteLine("ggml_backend_cuda_init() failed.");
+				Console.WriteLine("we while use ggml_backend_cpu_init() instead.");
+
+				// if there aren't GPU Backends fallback to CPU backend
+				model.backend = SafeGGmlBackend.CpuInit();
+			}
+
+			model.context = new SafeGGmlContext(IntPtr.Zero, NoAllocateMemory: true);
+			model.input = model.context.NewTensor1d(GGmlType.GGML_TYPE_F32, 28 * 28);
+			model.input.Name = "input";
+
+			model.buffer = model.context.BackendAllocContextTensors(model.backend);
+
 			foreach (var tensor in tensors)
 			{
 				if (tensor.Name == "fc2.weight")
 				{
-					model.fc2Weight = LoadWeigth(context, pickleLoader, tensor);
+					model.fc2Weight = LoadWeigth(model.context, pickleLoader, tensor);
+					model.fc2Weight.Name = "fc2.weight";
 				}
 				else if (tensor.Name == "fc2.bias")
 				{
-					model.fc2Bias = LoadWeigth(context, pickleLoader, tensor);
+					model.fc2Bias = LoadWeigth(model.context, pickleLoader, tensor);
+					model.fc2Bias.Name = "fc2.bias";
 				}
 				else if (tensor.Name == "fc1.weight")
 				{
-					model.fc1Weight = LoadWeigth(context, pickleLoader, tensor);
+					model.fc1Weight = LoadWeigth(model.context, pickleLoader, tensor);
+					model.fc1Weight.Name = "fc1.weight";
 				}
 				else if (tensor.Name == "fc1.bias")
 				{
-					model.fc1Bias = LoadWeigth(context, pickleLoader, tensor);
+					model.fc1Bias = LoadWeigth(model.context, pickleLoader, tensor);
+					model.fc1Bias.Name = "fc1.bias";
 				}
 			}
 			return model;
 		}
 
-		private static SafeGGmlTensor LoadWeigth(SafeGGmlContext context, PickleLoader pickleLoader, ModelLoader.Tensor commonTensor)
+		private static SafeGGmlTensor LoadWeigth(SafeGGmlContext context, PickleLoader pickleLoader, Tensor commonTensor)
 		{
 			SafeGGmlTensor tensor = context.NewTensor(commonTensor.Type, commonTensor.Shape.ToArray());
 			byte[] bytes = pickleLoader.ReadByteFromFile(commonTensor);
 			tensor.SetData(bytes);
-			if (commonTensor.Name.Contains("weight"))
-			{
-				tensor = context.Transpose(tensor);
-				Marshal.Copy(tensor.Data, bytes, 0, bytes.Length);
-				tensor = context.NewTensor2d(commonTensor.Type, commonTensor.Shape[1], commonTensor.Shape[0]);
-				tensor.SetData(bytes);
-			}
-			tensor.Name = commonTensor.Name;
 			return tensor;
 		}
+
+		private static void BuildGraph(Model model)
+		{
+			model.graph = model.context.NewGraph();
+
+			SafeGGmlTensor re = model.context.MulMat(model.context.Reshape2d(model.fc1Weight, model.fc1Weight.Shape[1], model.fc1Weight.Shape[0]), model.input);
+			re = model.context.Add(re, model.fc1Bias);
+			re = model.context.Relu(re);
+			re = model.context.MulMat(model.context.Reshape2d(model.fc2Weight, model.fc2Weight.Shape[1], model.fc2Weight.Shape[0]), re);
+			re = model.context.Add(re, model.fc2Bias);
+			re = model.context.SoftMax(re);
+			re.Name = "probs";
+
+			model.graph.BuildForwardExpend(re);
+		}
+
+		// compute with backend
+		private static SafeGGmlTensor Compute(Model model, SafeGGmlGraphAllocr allocr)
+		{
+			// allocate tensors
+			model.graph.GraphAllocate(allocr);
+
+			model.graph.BackendCompute(model.backend);
+
+			// in this case, the output tensor is the last one in the graph
+			return model.graph.Nodes[model.graph.NodeCount - 1];
+		}
+
+
+
 	}
 }

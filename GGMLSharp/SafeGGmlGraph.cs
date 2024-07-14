@@ -133,6 +133,11 @@ namespace GGMLSharp
 			return plan;
 		}
 
+		public bool Reserve(SafeGGmlGraphAllocr allocr)
+		{
+			return Native.ggml_gallocr_reserve(allocr, this);
+		}
+
 	}
 }
 

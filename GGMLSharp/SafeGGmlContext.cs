@@ -91,7 +91,7 @@ namespace GGMLSharp
 		private bool IsInitialized => handle != IntPtr.Zero;
 
 		public SafeGGmlTensor Transpose(SafeGGmlTensor tensor)
-		{
+		{ 
 			ThrowIfNotInitialized();
 			return Native.ggml_transpose(this, tensor);
 		}
@@ -295,138 +295,210 @@ namespace GGMLSharp
 			return Native.ggml_conv_2d(this, a, b, s0, s1, p0, p1, d0, d1);
 		}
 
+		public SafeGGmlTensor Conv2d(SafeGGmlTensor tensor, SafeGGmlTensor weight, SafeGGmlTensor bias, int s0 = 1, int s1 = 1, int p0 = 0, int p1 = 0, int d0 = 1, int d1 = 1)
+		{
+			ThrowIfNotInitialized();
+			SafeGGmlTensor re = Conv2d(weight, tensor, s1, s0, p1, p0, d1, d0);
+			return Native.ggml_add(this, re, bias);
+		}
+
 		public SafeGGmlTensor CrossEntropyLoss(SafeGGmlTensor a, SafeGGmlTensor b)
 		{
+			ThrowIfNotInitialized();
 			return Native.ggml_cross_entropy_loss(this, a, b);
 		}
 
 		public SafeGGmlTensor Scale(SafeGGmlTensor tensor, float s)
 		{
+			ThrowIfNotInitialized();
 			return Native.ggml_scale(this, tensor, s);
 		}
 
 		public SafeGGmlTensor MapCustom1(SafeGGmlTensor a, Structs.Custom1OpDelegate fun, int taskCount, IntPtr userdata)
 		{
+			ThrowIfNotInitialized();
 			return Native.ggml_map_custom1(this, a, fun, taskCount, userdata);
 		}
 
 		public SafeGGmlTensor MapCustom2(SafeGGmlTensor a, SafeGGmlTensor b, Structs.Custom2OpDelegate fun, int taskCount, IntPtr userdata)
 		{
+			ThrowIfNotInitialized();
 			return Native.ggml_map_custom2(this, a, b, fun, taskCount, userdata);
 		}
 
 		public SafeGGmlTensor MapCustom3(SafeGGmlTensor a, SafeGGmlTensor b, SafeGGmlTensor c, Structs.Custom3OpDelegate fun, int taskCount, IntPtr userdata)
 		{
+			ThrowIfNotInitialized();
 			return Native.ggml_map_custom3(this, a, b, c, fun, taskCount, userdata);
 		}
 
 		public SafeGGmlTensor View1d(SafeGGmlTensor tensor, long ne0, ulong offset)
 		{
+			ThrowIfNotInitialized();
 			return Native.ggml_view_1d(this, tensor, ne0, offset);
 		}
 
 		public SafeGGmlTensor View2d(SafeGGmlTensor tensor, long ne0, long ne1, ulong nb1, ulong offset)
 		{
+			ThrowIfNotInitialized();
 			return Native.ggml_view_2d(this, tensor, ne0, ne1, nb1, offset);
 		}
 
 		public SafeGGmlTensor View3d(SafeGGmlTensor tensor, long ne0, long ne1, long ne2, ulong nb1, ulong nb2, ulong offset)
 		{
+			ThrowIfNotInitialized();
 			return Native.ggml_view_3d(this, tensor, ne0, ne1, ne2, nb1, nb2, offset);
 		}
 
 		public SafeGGmlTensor View4d(SafeGGmlTensor tensor, long ne0, long ne1, long ne2, long ne3, ulong nb1, ulong nb2, ulong nb3, ulong offset)
 		{
+			ThrowIfNotInitialized();
 			return Native.ggml_view_4d(this, tensor, ne0, ne1, ne2, ne3, nb1, nb2, nb3, offset);
 		}
 
 		public SafeGGmlTensor ViewTensor(SafeGGmlTensor tensor)
 		{
+			ThrowIfNotInitialized();
 			return Native.ggml_view_tensor(this, tensor);
 		}
 
 		public SafeGGmlTensor Copy(SafeGGmlTensor a, SafeGGmlTensor b)
 		{
+			ThrowIfNotInitialized();
 			return Native.ggml_cpy(this, a, b);
-
 		}
 
 		public SafeGGmlTensor Permute(SafeGGmlTensor tensor, int axis0, int axis1, int axis2, int axis3)
 		{
+			ThrowIfNotInitialized();
 			return Native.ggml_permute(this, tensor, axis0, axis1, axis2, axis3);
 		}
 
 		public SafeGGmlTensor AddInplace(SafeGGmlTensor a, SafeGGmlTensor b)
 		{
+			ThrowIfNotInitialized();
 			return Native.ggml_add_inplace(this, a, b);
 		}
 
 		public SafeGGmlTensor Repeat(SafeGGmlTensor a, SafeGGmlTensor b)
 		{
+			ThrowIfNotInitialized();
 			return Native.ggml_repeat(this, a, b);
 		}
 
 		public SafeGGmlTensor ScaleInplace(SafeGGmlTensor tensor, float s)
 		{
+			ThrowIfNotInitialized();
 			return Native.ggml_scale_inplace(this, tensor, s);
 		}
 
 		public SafeGGmlTensor SoftmaxInplace(SafeGGmlTensor tensor)
 		{
+			ThrowIfNotInitialized();
 			return Native.ggml_soft_max_inplace(this, tensor);
 		}
 
 		public SafeGGmlTensor ReluInplace(SafeGGmlTensor tensor)
 		{
+			ThrowIfNotInitialized();
 			return Native.ggml_relu_inplace(this, tensor);
 		}
 
 		public SafeGGmlTensor NormalInplace(SafeGGmlTensor tensor, float eps)
 		{
+			ThrowIfNotInitialized();
 			return Native.ggml_norm_inplace(this, tensor, eps);
 		}
 
 		public SafeGGmlTensor ConvTranspose2dP0(SafeGGmlTensor a, SafeGGmlTensor b, int stride)
 		{
+			ThrowIfNotInitialized();
 			return Native.ggml_conv_transpose_2d_p0(this, a, b, stride);
 		}
 
 		public SafeGGmlTensor GeluInplace(SafeGGmlTensor tensor)
 		{
+			ThrowIfNotInitialized();
 			return Native.ggml_elu_inplace(this, tensor);
 		}
 
 		public SafeGGmlTensor Conv2dSkP0(SafeGGmlTensor a, SafeGGmlTensor b)
 		{
+			ThrowIfNotInitialized();
 			return Native.ggml_conv_2d_sk_p0(this, a, b);
 		}
 
 		public SafeGGmlTensor GetRelPos(SafeGGmlTensor tensor, int qh, int kh)
 		{
+			ThrowIfNotInitialized();
 			return Native.ggml_get_rel_pos(this, tensor, qh, kh);
 		}
 
 		public SafeGGmlTensor AddRelPosInplace(SafeGGmlTensor tensor, SafeGGmlTensor pw, SafeGGmlTensor ph)
 		{
+			ThrowIfNotInitialized();
 			return Native.ggml_add_rel_pos_inplace(this, tensor, pw, ph);
 		}
 
 		public SafeGGmlTensor WinUnpart(SafeGGmlTensor tensor, int w0, int h0, int w)
 		{
+			ThrowIfNotInitialized();
 			return Native.ggml_win_unpart(this, tensor, w0, h0, w);
 		}
 
 		public SafeGGmlTensor Conv2dS1Ph(SafeGGmlTensor a, SafeGGmlTensor b)
 		{
+			ThrowIfNotInitialized();
 			return Native.ggml_conv_2d_s1_ph(this, a, b);
 		}
 
 		public SafeGGmlTensor WinPart(SafeGGmlTensor tensor, int w)
 		{
+			ThrowIfNotInitialized();
 			return Native.ggml_win_part(this, tensor, w);
 		}
 
+		public SafeGGmlTensor Linear(SafeGGmlTensor tensor, SafeGGmlTensor weight, SafeGGmlTensor bias)
+		{
+			ThrowIfNotInitialized();
+			SafeGGmlTensor re = MulMat(weight, tensor);
+			re = Add(re, bias);
+			return re;
+		}
 
+		public SafeGGmlTensor LayerNorm(SafeGGmlTensor tensor, SafeGGmlTensor weight, SafeGGmlTensor bias, float eps = 1e-05f)
+		{
+			ThrowIfNotInitialized();
+			SafeGGmlTensor re = Normal(tensor, eps);
+			re = Mul(re, weight);
+			re = Add(re, bias);
+			return re;
+		}
+
+		public SafeGGmlTensor GroupNormal(SafeGGmlTensor tensor, int groups)
+		{
+			return Native.ggml_group_norm(this, tensor, groups);
+		}
+
+		public SafeGGmlTensor GroupNormal(SafeGGmlTensor tensor, SafeGGmlTensor weight, SafeGGmlTensor bias, int groups)
+		{
+			ThrowIfNotInitialized();
+			// Is there anything wrong?
+			if (tensor.Shape.Length >= 3)
+			{
+				weight = Reshape4d(weight, 1, 1, weight.Shape[0], 1);
+				bias = Reshape4d(bias, 1, 1, bias.Shape[0], 1);
+			}
+			SafeGGmlTensor re = GroupNormal(tensor, groups);
+			re = Mul(re, weight);
+			re = Add(re, bias);
+			return re;
+		}
 
 	}
+
+
+
+
 }
+

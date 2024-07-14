@@ -37,11 +37,9 @@ namespace MNIST_Train
 			context.SetParam(fc2Weight);
 			context.SetParam(fc2Bias);
 
-			SafeGGmlTensor re = context.MulMat(fc1Weight, input);
-			re = context.Add(re, fc1Bias);
+			SafeGGmlTensor re = context.Linear(input, fc1Weight, fc1Bias);
 			re = context.Relu(re);
-			re = context.MulMat(fc2Weight, re);
-			re = context.Add(re, fc2Bias);
+			re = context.Linear(re, fc2Weight, fc2Bias);
 			SafeGGmlTensor probs = context.SoftMax(re);
 			SafeGGmlTensor label = context.NewTensor1d(Structs.GGmlType.GGML_TYPE_F32, 10);
 			SafeGGmlTensor loss = context.CrossEntropyLoss(probs, label);

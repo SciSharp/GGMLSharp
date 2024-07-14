@@ -176,13 +176,14 @@ namespace GGMLSharp
 			Native.ggml_backend_tensor_set(this, data, offset, size);
 		}
 
-		public void SetBackend(Array array, ulong offset = 0, ulong size = 0)
+		public void SetBackend(Array data, ulong offset = 0, ulong size = 0)
 		{
 			ThrowIfNotInitialized();
-			IntPtr ptr = Marshal.UnsafeAddrOfPinnedArrayElement(array, 0);
+			IntPtr ptr = Marshal.UnsafeAddrOfPinnedArrayElement(data, 0);
 			size = size == 0 ? ElementsSize * (ulong)ElementsCount : size;
 			Native.ggml_backend_tensor_set(this, ptr, offset, size);
 		}
+
 
 		public long ElementsCount => Native.ggml_nelements(this);
 		public ulong ElementsSize => Native.ggml_element_size(this);
@@ -232,6 +233,7 @@ namespace GGMLSharp
 		{
 			return Native.ggml_is_contiguous(this);
 		}
+
 
 
 	}

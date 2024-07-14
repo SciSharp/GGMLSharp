@@ -25,6 +25,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Converter", "Examples\Conve
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SAM", "Examples\SAM\SAM.csproj", "{0C06AFC4-B825-4898-89D0-605FBDCCA9A4}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Esrgan", "Examples\Esrgan\Esrgan.csproj", "{65C89137-5683-4C52-B436-2F25F8E6FEBF}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -71,6 +73,10 @@ Global
 		{0C06AFC4-B825-4898-89D0-605FBDCCA9A4}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{0C06AFC4-B825-4898-89D0-605FBDCCA9A4}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{0C06AFC4-B825-4898-89D0-605FBDCCA9A4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{65C89137-5683-4C52-B436-2F25F8E6FEBF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{65C89137-5683-4C52-B436-2F25F8E6FEBF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{65C89137-5683-4C52-B436-2F25F8E6FEBF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{65C89137-5683-4C52-B436-2F25F8E6FEBF}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -85,6 +91,7 @@ Global
 		{D6CED790-5462-480B-ACA6-F65A22C5CF56} = {D02595E1-05BC-423E-92E1-535C51070670}
 		{422A11E6-EFB2-4486-85A8-3B2CC9692FA8} = {D02595E1-05BC-423E-92E1-535C51070670}
 		{0C06AFC4-B825-4898-89D0-605FBDCCA9A4} = {D02595E1-05BC-423E-92E1-535C51070670}
+		{65C89137-5683-4C52-B436-2F25F8E6FEBF} = {D02595E1-05BC-423E-92E1-535C51070670}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {76778827-4559-416F-A528-DF29292C601E}

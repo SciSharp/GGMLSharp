@@ -37,7 +37,7 @@ namespace SimpleBackend
 
 			// create the worst case graph for memory usage estimation
 			SafeGGmlGraph gf = BuildGraph(model);
-			allocr.Reserve(gf);
+			gf.Reserve(allocr);
 			ulong mem_size = allocr.GetBufferSize(0);
 
 			Console.WriteLine($"compute buffer size: {mem_size / 1024.0} KB");

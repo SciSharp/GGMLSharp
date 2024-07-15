@@ -5,7 +5,7 @@ VisualStudioVersion = 17.9.34616.47
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GGMLSharp", "GGMLSharp\GGMLSharp.csproj", "{001FD1F1-EC17-45E9-B750-A2A2029E6C60}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "examples", "examples", "{D02595E1-05BC-423E-92E1-535C51070670}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Demos", "Demos", "{D02595E1-05BC-423E-92E1-535C51070670}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SimpleBackend", "Examples\SimpleBackend\SimpleBackend.csproj", "{A9A8673F-FEBD-4025-BA45-70D56B99CC8C}"
 EndProject

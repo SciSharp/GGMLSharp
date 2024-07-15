@@ -1,6 +1,7 @@
 ﻿using ProtoBuf;
 using System.Collections.Generic;
 
+
 namespace Converter.CommonLib
 {
 	[ProtoContract]

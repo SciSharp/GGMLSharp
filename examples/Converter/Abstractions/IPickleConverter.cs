@@ -1,4 +1,5 @@
-﻿namespace Converter.Abstractions
+﻿
+namespace Converter.Abstractions
 {
 	public interface IPickleConverter
 	{

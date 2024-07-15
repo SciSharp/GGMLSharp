@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 
+
 namespace Magika
 {
 	internal class Program

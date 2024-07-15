@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 
+
 namespace MNIST_CNN
 {
 	internal class Program

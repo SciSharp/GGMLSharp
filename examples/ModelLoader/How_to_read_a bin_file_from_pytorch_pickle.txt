@@ -9,7 +9,6 @@ For example, we can read somefile and get the sign and data like this:
 "X" is the type of data, that is from byte to char and means "BINUNICODE"
 "model.layers.24.self_attn.q_proj.weight" is the data.
 
-
  0: \x80 PROTO      2
     2: }    EMPTY_DICT
     3: q    BINPUT     0

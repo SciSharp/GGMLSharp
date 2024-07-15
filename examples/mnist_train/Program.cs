@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using static GGMLSharp.Structs;
 
+
 namespace MNIST_Train
 {
 	internal class Program

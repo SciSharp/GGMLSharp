@@ -57,10 +57,6 @@
       <Project>{001fd1f1-ec17-45e9-b750-a2a2029e6c60}</Project>
       <Name>GGMLSharp</Name>
     </ProjectReference>
-    <ProjectReference Include="..\ModelLoader\ModelLoader.csproj">
-      <Project>{e48f9d97-86ef-42cd-be41-46365026bee7}</Project>
-      <Name>ModelLoader</Name>
-    </ProjectReference>
   </ItemGroup>
   <ItemGroup>
     <Content Include="Assets\example.jpg">

@@ -91,7 +91,7 @@ namespace GGMLSharp
 		private bool IsInitialized => handle != IntPtr.Zero;
 
 		public SafeGGmlTensor Transpose(SafeGGmlTensor tensor)
-		{ 
+		{
 			ThrowIfNotInitialized();
 			return Native.ggml_transpose(this, tensor);
 		}
@@ -386,6 +386,7 @@ namespace GGMLSharp
 			return Native.ggml_repeat(this, a, b);
 		}
 
+
 		public SafeGGmlTensor ScaleInplace(SafeGGmlTensor tensor, float s)
 		{
 			ThrowIfNotInitialized();
@@ -396,6 +397,12 @@ namespace GGMLSharp
 		{
 			ThrowIfNotInitialized();
 			return Native.ggml_soft_max_inplace(this, tensor);
+		}
+
+		public SafeGGmlTensor Softmax(SafeGGmlTensor tensor)
+		{
+			ThrowIfNotInitialized();
+			return Native.ggml_soft_max(this, tensor);
 		}
 
 		public SafeGGmlTensor ReluInplace(SafeGGmlTensor tensor)
@@ -458,12 +465,11 @@ namespace GGMLSharp
 			return Native.ggml_win_part(this, tensor, w);
 		}
 
-		public SafeGGmlTensor Linear(SafeGGmlTensor tensor, SafeGGmlTensor weight, SafeGGmlTensor bias)
+		public SafeGGmlTensor Linear(SafeGGmlTensor tensor, SafeGGmlTensor weight, SafeGGmlTensor bias, bool inplace = false)
 		{
 			ThrowIfNotInitialized();
 			SafeGGmlTensor re = MulMat(weight, tensor);
-			re = Add(re, bias);
-			return re;
+			return inplace ? AddInplace(re, bias) : Add(re, bias);
 		}
 
 		public SafeGGmlTensor LayerNorm(SafeGGmlTensor tensor, SafeGGmlTensor weight, SafeGGmlTensor bias, float eps = 1e-05f)
@@ -477,6 +483,7 @@ namespace GGMLSharp
 
 		public SafeGGmlTensor GroupNormal(SafeGGmlTensor tensor, int groups)
 		{
+			ThrowIfNotInitialized();
 			return Native.ggml_group_norm(this, tensor, groups);
 		}
 
@@ -495,9 +502,88 @@ namespace GGMLSharp
 			return re;
 		}
 
+		public SafeGGmlTensor LayerNorm2d(SafeGGmlTensor layer, int n_channels, SafeGGmlTensor w, SafeGGmlTensor b, float eps)
+		{
+			ThrowIfNotInitialized();
+			// LayerNorm2d
+			// normalize along channel dimmension
+			// TODO: better implementation
+			layer = Permute(
+				Normal(
+					Cont(
+						Permute(layer, 1, 2, 0, 3)),
+					eps),
+				2, 0, 1, 3);
+
+			layer = Add(
+					 Mul(
+						 Repeat(
+							 Reshape3d(w, 1, 1, n_channels),
+							 layer),
+						  layer),
+					Repeat(Reshape3d(b, 1, 1, n_channels), layer));
+
+			return layer;
+		}
+
+
+		public SafeGGmlTensor SelfAttention(SafeGGmlTensor queries, SafeGGmlTensor keys, SafeGGmlTensor values, SafeGGmlTensor queriesWeight, SafeGGmlTensor queriesBias, SafeGGmlTensor keysWeight, SafeGGmlTensor keysBias, SafeGGmlTensor valuesWeight, SafeGGmlTensor valuesBias, SafeGGmlTensor outputWeight, SafeGGmlTensor outputBias, long headers)
+		{
+			ThrowIfNotInitialized();
+
+			SafeGGmlTensor qCur = Linear(queries, queriesWeight, queriesBias);
+			SafeGGmlTensor kCur = Linear(keys, keysWeight, keysBias);
+			SafeGGmlTensor vCur = Linear(values, valuesWeight, valuesBias);
+
+			SafeGGmlTensor q = Reshape4d(qCur, qCur.Shape[0] / headers, headers, qCur.Shape[1], qCur.Shape[2]);
+			SafeGGmlTensor k = Reshape4d(kCur, kCur.Shape[0] / headers, headers, kCur.Shape[1], kCur.Shape[2]);
+			SafeGGmlTensor v = Reshape4d(vCur, vCur.Shape[0] / headers, headers, vCur.Shape[1], vCur.Shape[2]);
+
+			q = Cont(Permute(q, 0, 2, 1, 3));
+			k = Cont(Permute(k, 0, 2, 1, 3));
+			v = Cont(Permute(v, 0, 2, 1, 3));
+
+			// q * k
+			SafeGGmlTensor qk = MulMat(k, q);
+
+			SafeGGmlTensor kqScaled = Scale(qk, 1.0f / (float)Math.Sqrt(q.Shape[0]));
+
+			SafeGGmlTensor kqSoftmax = Softmax(kqScaled);
+
+			SafeGGmlTensor qkv = MulMat(kqSoftmax, Cont(Transpose(v)));
+
+			SafeGGmlTensor qkvMerged = Cont(Transpose(qkv));
+			qkvMerged = Cont(Permute(qkvMerged, 0, 2, 1, 3));
+			qkvMerged = Reshape3d(qkvMerged, qkvMerged.Shape[0] * qkvMerged.Shape[1], qkvMerged.Shape[2], qkvMerged.Shape[3]);
+			qkvMerged = Linear(qkvMerged, outputWeight, outputBias);
+
+			return qkvMerged;
+
+		}
+
+		public SafeGGmlTensor SelfAttention(SafeGGmlTensor tensor, SafeGGmlTensor queriesWeight, SafeGGmlTensor queriesBias, SafeGGmlTensor keysWeight, SafeGGmlTensor keysBias, SafeGGmlTensor valuesWeight, SafeGGmlTensor valuesBias, SafeGGmlTensor outputWeight, SafeGGmlTensor outputBias, long headers)
+		{
+			return SelfAttention(tensor, tensor, tensor, queriesWeight, queriesBias, keysWeight, keysBias, valuesWeight, valuesBias, outputWeight, outputBias, headers);
+		}
+
+		public SafeGGmlTensor CrossAttention(SafeGGmlTensor x, SafeGGmlTensor y, SafeGGmlTensor queriesWeight, SafeGGmlTensor queriesBias, SafeGGmlTensor keysWeight, SafeGGmlTensor keysBias, SafeGGmlTensor valuesWeight, SafeGGmlTensor valuesBias, SafeGGmlTensor outputWeight, SafeGGmlTensor outputBias, long headers)
+		{
+			return SelfAttention(x, y, y, queriesWeight, queriesBias, keysWeight, keysBias, valuesWeight, valuesBias, outputWeight, outputBias, headers);
+		}
+
+		public SafeGGmlTensor FlashAttention(SafeGGmlTensor tensor, SafeGGmlTensor queriesWeight, SafeGGmlTensor queriesBias, SafeGGmlTensor keysWeight, SafeGGmlTensor keysBias, SafeGGmlTensor valuesWeight, SafeGGmlTensor valuesBias, SafeGGmlTensor outputWeight, SafeGGmlTensor outputBias, long headers, bool masked = false)
+		{
+			ThrowIfNotInitialized();
+			SafeGGmlTensor qCur = Linear(tensor, queriesWeight, queriesBias);
+			SafeGGmlTensor kCur = Linear(tensor, keysWeight, keysBias);
+			SafeGGmlTensor vCur = Linear(tensor, valuesWeight, valuesBias);
+			var attn = Native.ggml_flash_attn(this, qCur, kCur, vCur, masked);
+			attn = Linear(attn, outputWeight, outputBias);
+
+			return attn;
+
+		}
 	}
-
-
 
 
 }

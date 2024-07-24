@@ -366,7 +366,7 @@ namespace SAM
 
 		static void DisconnectNodeFromGraph(SafeGGmlTensor t)
 		{
-			t.Operations = Structs. GGmlOperation.GGML_OP_NONE;
+			t.Operations = Structs.GGmlOperation.GGML_OP_NONE;
 			for (int i = 0; i < Structs.GGML_MAX_SRC; i++)
 			{
 				t.Sources[i].Dispose();
@@ -941,94 +941,14 @@ namespace SAM
 			return res;
 		}
 
-		static SafeGGmlTensor SamDecodeMaskTransformerAttn(SamLayerDecTransformerAttn attn, SafeGGmlTensor queries, SafeGGmlTensor keys, SafeGGmlTensor values, SafeGGmlContext ctx0, SamModel model)
-		{
-			SamHparams hparams = model.hparams;
-			int n_head = hparams.DecoderHeadsCount;
-
-			SafeGGmlTensor Qcur;
-			SafeGGmlTensor Kcur;
-			SafeGGmlTensor Vcur;
-
-			Qcur = ctx0.MulMat(attn.q_w, queries);
-			Qcur = ctx0.AddInplace(Qcur, attn.q_b);
-
-			Kcur = ctx0.MulMat(attn.k_w, keys);
-			Kcur = ctx0.AddInplace(Kcur, attn.k_b);
-
-			Vcur = ctx0.MulMat(attn.v_w, values);
-			Vcur = ctx0.AddInplace(Vcur, attn.v_b);
-
-			SafeGGmlTensor Q;
-			SafeGGmlTensor K;
-			SafeGGmlTensor V;
-
-			Q = ctx0.Reshape4d(Qcur, Qcur.Shape[0] / n_head, n_head, Qcur.Shape[1], Qcur.Shape[2]);
-			Q = ctx0.Cont(ctx0.Permute(Q, 0, 2, 1, 3));
-
-			K = ctx0.Reshape4d(Kcur, Kcur.Shape[0] / n_head, n_head, Kcur.Shape[1], Kcur.Shape[2]);
-			K = ctx0.Cont(ctx0.Permute(K, 0, 2, 1, 3));
-
-			V = ctx0.Reshape4d(Vcur, Vcur.Shape[0] / n_head, n_head, Vcur.Shape[1], Vcur.Shape[2]);
-			V = ctx0.Cont(ctx0.Permute(V, 0, 2, 1, 3));
-
-			// Q * K
-			SafeGGmlTensor KQ = ctx0.MulMat(K, Q);
-
-			SafeGGmlTensor KQ_scaled = ctx0.ScaleInplace(KQ, 1.0f / (float)Math.Sqrt(Q.Shape[0]));
-
-			SafeGGmlTensor KQ_soft_max = ctx0.SoftmaxInplace(KQ_scaled);
-
-			SafeGGmlTensor KQV = ctx0.MulMat(KQ_soft_max, ctx0.Cont(ctx0.Transpose(V)));
-
-			SafeGGmlTensor KQV_merged = ctx0.Cont(ctx0.Transpose(KQV));
-			KQV_merged = ctx0.Cont(ctx0.Permute(KQV_merged, 0, 2, 1, 3));
-			KQV_merged = ctx0.Reshape3d(KQV_merged, KQV_merged.Shape[0] * KQV_merged.Shape[1], KQV_merged.Shape[2], KQV_merged.Shape[3]);
-			KQV_merged = ctx0.MulMat(attn.out_w, KQV_merged);
-			KQV_merged = ctx0.AddInplace(KQV_merged, attn.out_b);
-
-			return KQV_merged;
-		}
-
 		static SafeGGmlTensor SamDecodeMaskMlpRelu3(SafeGGmlContext ctx0, SafeGGmlTensor input, SafeGGmlTensor w0, SafeGGmlTensor b0, SafeGGmlTensor w1, SafeGGmlTensor b1, SafeGGmlTensor w2, SafeGGmlTensor b2)
 		{
-			SafeGGmlTensor cur = ctx0.MulMat(w0, input);
-			cur = ctx0.AddInplace(cur, b0);
-
-			cur = ctx0.ReluInplace(cur);
-
-			cur = ctx0.MulMat(w1, cur);
-			cur = ctx0.AddInplace(cur, b1);
-
-			cur = ctx0.ReluInplace(cur);
-
-			cur = ctx0.MulMat(w2, cur);
-			cur = ctx0.AddInplace(cur, b2);
-
+			SafeGGmlTensor cur = ctx0.Linear(input, w0, b0);
+			cur = ctx0.Relu(cur);
+			cur = ctx0.Linear(cur, w1, b1);
+			cur = ctx0.Relu(cur);
+			cur = ctx0.Linear(cur, w2, b2);
 			return cur;
-		}
-
-		static SafeGGmlTensor SamLayerNorm2d(SafeGGmlContext ctx0, SafeGGmlTensor layer, int n_channels, SafeGGmlTensor w, SafeGGmlTensor b, float eps)
-		{
-			// LayerNorm2d
-			// normalize along channel dimmension
-			// TODO: better implementation
-			layer = ctx0.Permute(
-				ctx0.Normal(
-					ctx0.Cont(
-						ctx0.Permute(layer, 1, 2, 0, 3)),
-					eps),
-				2, 0, 1, 3);
-
-			layer = ctx0.Add(
-					 ctx0.Mul(
-						 ctx0.Repeat(
-							 ctx0.Reshape3d(w, 1, 1, n_channels),
-							 layer),
-						  layer),
-					ctx0.Repeat(ctx0.Reshape3d(b, 1, 1, n_channels), layer));
-
-			return layer;
 		}
 
 		static bool SamDecodeMask(SamModel model, PromptEncoderResult prompt, SafeGGmlTensor pe_img, SafeGGmlContext ctx0, SafeGGmlGraph gf, SamState state)
@@ -1115,62 +1035,54 @@ namespace SAM
 					bool skipFirstLayerPe = i == 0;
 					if (skipFirstLayerPe)
 					{
-						queries = SamDecodeMaskTransformerAttn(tfmLayer.self_attn, queries, queries, queries, ctx0, model);
+						queries = ctx0.SelfAttention(queries, tfmLayer.self_attn.q_w, tfmLayer.self_attn.q_b, tfmLayer.self_attn.k_w, tfmLayer.self_attn.k_b, tfmLayer.self_attn.v_w, tfmLayer.self_attn.v_b, tfmLayer.self_attn.out_w, tfmLayer.self_attn.out_b, model.hparams.DecoderHeadsCount);
 					}
 					else
 					{
 
 						SafeGGmlTensor q0 = ctx0.Add(queries, tokens);
 
-						SafeGGmlTensor self_attn = SamDecodeMaskTransformerAttn(tfmLayer.self_attn, q0, q0, queries, ctx0, model);
+						SafeGGmlTensor self_attn = ctx0.SelfAttention(q0, q0, queries, tfmLayer.self_attn.q_w, tfmLayer.self_attn.q_b, tfmLayer.self_attn.k_w, tfmLayer.self_attn.k_b, tfmLayer.self_attn.v_w, tfmLayer.self_attn.v_b, tfmLayer.self_attn.out_w, tfmLayer.self_attn.out_b, model.hparams.DecoderHeadsCount);
 						queries = ctx0.Add(queries, self_attn);
 					}
 
-					queries = ctx0.Normal(queries, hparams.EpsDecoderTransformer);
-					queries = ctx0.AddInplace(
-						ctx0.Mul(queries, tfmLayer.norm1_w),
-							tfmLayer.norm1_b);
+					queries = ctx0.LayerNorm(queries, tfmLayer.norm1_w, tfmLayer.norm1_b, hparams.EpsDecoderTransformer);
 
 					// Cross attention block, tokens attending to image embedding
 					// ref: https://github.com/facebookresearch/segment-anything/blob/6fdee8f2727f4506cfbbe553e23b895e27956588/segment_anything/modeling/transformer.py#L163
 					SafeGGmlTensor q_1 = ctx0.Add(queries, tokens);
 					SafeGGmlTensor k_1 = ctx0.Add(keys, posSrc);
 
-					SafeGGmlTensor cross_attn_token_to_img = SamDecodeMaskTransformerAttn(tfmLayer.cross_attn_token_to_img, q_1, k_1, keys, ctx0, model);
+					SafeGGmlTensor cross_attn_token_to_img = ctx0.SelfAttention(q_1, k_1, keys, tfmLayer.cross_attn_token_to_img.q_w, tfmLayer.cross_attn_token_to_img.q_b, tfmLayer.cross_attn_token_to_img.k_w, tfmLayer.cross_attn_token_to_img.k_b, tfmLayer.cross_attn_token_to_img.v_w, tfmLayer.cross_attn_token_to_img.v_b, tfmLayer.cross_attn_token_to_img.out_w, tfmLayer.cross_attn_token_to_img.out_b, model.hparams.DecoderHeadsCount);
 
 					queries = ctx0.AddInplace(queries, cross_attn_token_to_img);
-					queries = ctx0.NormalInplace(queries, hparams.EpsDecoderTransformer);
-					queries = ctx0.AddInplace(ctx0.Mul(queries, tfmLayer.norm2_w), tfmLayer.norm2_b);
+
+					queries = ctx0.LayerNorm(queries, tfmLayer.norm2_w, tfmLayer.norm2_b, hparams.EpsDecoderTransformer);
+
 
 					// MLP block
 					// ref: https://github.com/facebookresearch/segment-anything/blob/6fdee8f2727f4506cfbbe553e23b895e27956588/segment_anything/modeling/transformer.py#L170
-					SafeGGmlTensor mlp_out = ctx0.MulMat(tfmLayer.mlp_lin1_w, queries);
-
-					mlp_out = ctx0.AddInplace(mlp_out, tfmLayer.mlp_lin1_b);
+					SafeGGmlTensor mlp_out = ctx0.Linear(queries, tfmLayer.mlp_lin1_w, tfmLayer.mlp_lin1_b);
 
 					// RELU activation
 					mlp_out = ctx0.ReluInplace(mlp_out);
-					mlp_out = ctx0.MulMat(tfmLayer.mlp_lin2_w, mlp_out);
 
-					mlp_out = ctx0.AddInplace(mlp_out, tfmLayer.mlp_lin2_b);
+					mlp_out = ctx0.Linear(mlp_out, tfmLayer.mlp_lin2_w, tfmLayer.mlp_lin2_b);
 
 					queries = ctx0.AddInplace(queries, mlp_out);
-					queries = ctx0.NormalInplace(queries, hparams.EpsDecoderTransformer);
-					queries = ctx0.AddInplace(
-							ctx0.Mul(queries, tfmLayer.norm3_w),
-							tfmLayer.norm3_b);
+
+					queries = ctx0.LayerNorm(queries, tfmLayer.norm3_w, tfmLayer.norm3_b, hparams.EpsDecoderTransformer);
 
 					// Cross attention block, image embedding attending to tokens
 					// ref: https://github.com/facebookresearch/segment-anything/blob/6fdee8f2727f4506cfbbe553e23b895e27956588/segment_anything/modeling/transformer.py#L175
 					SafeGGmlTensor q_2 = ctx0.Add(queries, tokens);
 					SafeGGmlTensor k_2 = ctx0.Add(keys, posSrc);
 
-					SafeGGmlTensor cross_attn_img_to_token = SamDecodeMaskTransformerAttn(tfmLayer.cross_attn_img_to_token, k_2, q_2, queries, ctx0, model);
+					SafeGGmlTensor cross_attn_img_to_token = ctx0.SelfAttention(k_2, q_2, queries, tfmLayer.cross_attn_img_to_token.q_w, tfmLayer.cross_attn_img_to_token.q_b, tfmLayer.cross_attn_img_to_token.k_w, tfmLayer.cross_attn_img_to_token.k_b, tfmLayer.cross_attn_img_to_token.v_w, tfmLayer.cross_attn_img_to_token.v_b, tfmLayer.cross_attn_img_to_token.out_w, tfmLayer.cross_attn_img_to_token.out_b, model.hparams.DecoderHeadsCount);
 					keys = ctx0.AddInplace(keys, cross_attn_img_to_token);
-					keys = ctx0.NormalInplace(keys, hparams.EpsDecoderTransformer);
-					keys = ctx0.AddInplace(
-							ctx0.Mul(keys, tfmLayer.norm4_w),
-							tfmLayer.norm4_b);
+
+					keys = ctx0.LayerNorm(keys, tfmLayer.norm4_w, tfmLayer.norm4_b, hparams.EpsDecoderTransformer);
+
 				}
 
 				// Apply the final attention layer from the points to the image
@@ -1178,13 +1090,10 @@ namespace SAM
 				SafeGGmlTensor q = ctx0.Add(queries, tokens);
 				SafeGGmlTensor k = ctx0.Add(keys, posSrc);
 
-				SafeGGmlTensor final_attn_token_to_img = SamDecodeMaskTransformerAttn(dec.transformer_final_attn_token_to_img, q, k, keys, ctx0, model);
+				SafeGGmlTensor final_attn_token_to_img = ctx0.SelfAttention(q, k, keys, dec.transformer_final_attn_token_to_img.q_w, dec.transformer_final_attn_token_to_img.q_b, dec.transformer_final_attn_token_to_img.k_w, dec.transformer_final_attn_token_to_img.k_b, dec.transformer_final_attn_token_to_img.v_w, dec.transformer_final_attn_token_to_img.v_b, dec.transformer_final_attn_token_to_img.out_w, dec.transformer_final_attn_token_to_img.out_b, model.hparams.DecoderHeadsCount);
 
 				queries = ctx0.AddInplace(queries, final_attn_token_to_img);
-				queries = ctx0.NormalInplace(queries, hparams.EpsDecoderTransformer);
-				queries = ctx0.AddInplace(
-						ctx0.Mul(queries, dec.transformer_norm_final_w),
-						dec.transformer_norm_final_b);
+				queries = ctx0.LayerNorm(queries, dec.transformer_norm_final_w, dec.transformer_norm_final_b, hparams.EpsDecoderTransformer);
 			}
 
 
@@ -1205,7 +1114,7 @@ namespace SAM
 											ctx0.Reshape3d(dec.output_upscaling_0_b, 1, 1, dec.output_upscaling_0_b.Shape[0]),
 											 keys));
 
-				keys = SamLayerNorm2d(ctx0, keys, n_img_embd, dec.output_upscaling_1_w, dec.output_upscaling_1_b, hparams.Eps);
+				keys = ctx0.LayerNorm2d(keys, n_img_embd, dec.output_upscaling_1_w, dec.output_upscaling_1_b, hparams.Eps);
 
 				// GELU activation
 				keys = ctx0.GeluInplace(keys);
@@ -1217,6 +1126,7 @@ namespace SAM
 										keys), keys);
 				// GELU activation
 				keys = ctx0.GeluInplace(keys);
+
 				upscaled_embedding = ctx0.Reshape3d(keys, keys.Shape[0] * keys.Shape[1], keys.Shape[2], keys.Shape[3]);
 				upscaled_embedding = ctx0.Cont(ctx0.Transpose(upscaled_embedding)); // TODO: Shouldn't be needed
 			}
@@ -1436,7 +1346,7 @@ namespace SAM
 
 					SafeGGmlTensor KQ = ctx0.MulMat(K, Q);
 
-					SafeGGmlTensor KQ_scaled = ctx0.ScaleInplace(KQ, 1.0f / (float)Math.Sqrt(n_enc_head_dim));
+					SafeGGmlTensor KQ_scaled = ctx0.Scale(KQ, 1.0f / (float)Math.Sqrt(n_enc_head_dim));
 
 					SafeGGmlTensor rw = ctx0.GetRelPos(layer.rel_pos_w, (int)W, (int)W);
 					SafeGGmlTensor rh = ctx0.GetRelPos(layer.rel_pos_h, (int)H, (int)H);
@@ -1506,9 +1416,9 @@ namespace SAM
 
 			cur = ctx0.Cont(ctx0.Permute(inpL, 2, 0, 1, 3));
 			cur = ctx0.Conv2dSkP0(enc.neck_conv_0, cur);
-			cur = SamLayerNorm2d(ctx0, cur, n_enc_out_chans, enc.neck_norm_0_w, enc.neck_norm_0_b, hparams.Eps);
+			cur = ctx0.LayerNorm2d(cur, n_enc_out_chans, enc.neck_norm_0_w, enc.neck_norm_0_b, hparams.Eps);
 			cur = ctx0.Conv2dS1Ph(enc.neck_conv_1, cur);
-			cur = SamLayerNorm2d(ctx0, cur, n_enc_out_chans, enc.neck_norm_1_w, enc.neck_norm_1_b, hparams.Eps);
+			cur = ctx0.LayerNorm2d(cur, n_enc_out_chans, enc.neck_norm_1_w, enc.neck_norm_1_b, hparams.Eps);
 
 			cur = ctx0.Copy(cur, state.embdImg);
 

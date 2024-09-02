@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Net.NetworkInformation;
 using System.Runtime.InteropServices;
 using System.Text;
 using static GGMLSharp.InternalStructs;
@@ -213,7 +214,7 @@ namespace GGMLSharp
 
 		}
 
-		public void Save(string filename, bool metaOnly = false)
+		public void WriteToFile(string filename, bool metaOnly = false)
 		{
 			ThrowIfNotInitialized();
 			Native.gguf_write_to_file(this, filename, metaOnly);
@@ -221,26 +222,27 @@ namespace GGMLSharp
 
 		public void AddTensor(SafeGGmlTensor tensor)
 		{
+			ThrowIfNotInitialized();
 			Native.gguf_add_tensor(this, tensor);
 		}
 
 
 		public string GetTensorName(int index)
 		{
+			ThrowIfNotInitialized();
 			return Native.gguf_get_tensor_name(this, index);
 		}
 
 		public ulong GetDataOffset()
 		{
+			ThrowIfNotInitialized();
 			return Native.gguf_get_data_offset(this);
 		} 
 
 		public ulong GetTensorOffset(int i)
 		{
+			ThrowIfNotInitialized();
 			return Native.gguf_get_tensor_offset(this, i);
 		}
-
-
-
 	}
 }

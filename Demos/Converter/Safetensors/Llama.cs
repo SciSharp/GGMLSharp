@@ -106,7 +106,7 @@ namespace Converter.Safetensors
 				}
 				if (tensor.Shape.Count > 1)
 				{
-					if (name == "token_embd.weight" || name == "output.weight" || Regex.IsMatch(name, @"blk.\d+.ffn_(gate|down|up).weight") || Regex.IsMatch(name, @"blk.\d+.attn_(v|k).weight"))
+					if (name == "token_embd.Weight" || name == "output.Weight" || Regex.IsMatch(name, @"blk.\d+.ffn_(gate|down|up).Weight") || Regex.IsMatch(name, @"blk.\d+.attn_(v|k).Weight"))
 					{
 						ggmlTensor = ggmlContext.Transpose(ggmlTensor);
 						ggmlTensor.Name = name;
@@ -121,14 +121,14 @@ namespace Converter.Safetensors
 			if (!WriteToFileUsingStream)
 			{
 				Console.WriteLine("Write to file using gguf_write_to_file function. Please wait ...");
-				ggufContext.Save(outputFileName, false);
+				ggufContext.WriteToFile(outputFileName, false);
 			}
 			else
 			{
 				Console.WriteLine("Write to file using stream.");
 				string inputFileName = Path.Combine(folderPath, "model.safetensors");
 
-				ggufContext.Save(outputFileName, true);
+				ggufContext.WriteToFile(outputFileName, true);
 				byte[] bytes = File.ReadAllBytes(outputFileName);
 				ulong totalSize = (ulong)bytes.Length;
 				for (int i = 0; i < (int)ggufContext.TensorsCount; ++i)
@@ -151,7 +151,7 @@ namespace Converter.Safetensors
 					}
 					if (tensor.Shape.Count > 1)
 					{
-						if (transName == "token_embd.weight" || transName == "output.weight" || Regex.IsMatch(name, @"blk.\d+.ffn_(gate|down|up).weight") || Regex.IsMatch(name, @"blk.\d+.attn_(v|k).weight")) //'blk.0.ffn_down.weight
+						if (transName == "token_embd.Weight" || transName == "output.Weight" || Regex.IsMatch(name, @"blk.\d+.ffn_(gate|down|up).Weight") || Regex.IsMatch(name, @"blk.\d+.attn_(v|k).Weight")) //'blk.0.ffn_down.Weight
 						{
 							SafeGGmlContext ggml_context = new SafeGGmlContext(IntPtr.Zero, 2 * Common.TensorOverheadLength, true);
 							SafeGGmlTensor ggml_tensor = new SafeGGmlTensor(ggml_context, tensor.Type, tensor.Shape.ToArray());

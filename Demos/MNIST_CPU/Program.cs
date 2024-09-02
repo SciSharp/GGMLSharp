@@ -30,25 +30,26 @@ namespace MNIST_CPU
 				digit[i] = bytes[i] / 255.0f;
 			}
 
-			int prediction = Eval(model, 1, digit);
+			int prediction = Eval(model, digit);
 			Console.WriteLine("Prediction: {0}", prediction);
 			Console.ReadKey();
 		}
 
-		private static int Eval(Model model, int n_threads, float[] digit)
+		private static int Eval(Model model, float[] digit)
 		{
 			model.input.SetBackend(digit);
 			// calculate the temporaly memory required to compute
-			SafeGGmlGraphAllocr allocr = new SafeGGmlGraphAllocr(model.backend.GetDefaultBufferType());
+			model.allocr = new SafeGGmlGraphAllocr(model.buffer.BufferType);
 
 			// create the worst case graph for memory usage estimation
 			BuildGraph(model);
-			model.graph.Reserve(allocr);
-			ulong mem_size = allocr.GetBufferSize(0);
+			model.graph.Reserve(model.allocr);
+			ulong mem_size = model.allocr.GetBufferSize(0);
 			Console.WriteLine($"compute buffer size: {mem_size / 1024.0} KB");
 
-			SafeGGmlTensor probs = Compute(model, allocr);
-			List<float> probsList = probs.GetDataInFloats().ToList(); ;
+			SafeGGmlTensor probs = Compute(model);
+			byte[] data = probs.GetBackend();
+			List<float> probsList = DataConverter.ConvertToFloats(data).ToList();
 			int prediction = probsList.IndexOf(probsList.Max());
 			model.context.Free();
 
@@ -65,8 +66,9 @@ namespace MNIST_CPU
 			public SafeGGmlTensor fc1Bias;
 			public SafeGGmlContext context;
 			public SafeGGmlBackend backend;
-			public SafeGGmlBackendBuffer buffer;
 			public SafeGGmlGraph graph;
+			public SafeGGmlBackendBuffer buffer;
+			public SafeGGmlGraphAllocr allocr;
 		}
 
 		public static Model LoadModel(string path)
@@ -95,53 +97,37 @@ namespace MNIST_CPU
 
 			model.context = new SafeGGmlContext(IntPtr.Zero, NoAllocateMemory: true);
 			model.input = model.context.NewTensor1d(GGmlType.GGML_TYPE_F32, 28 * 28);
-			model.input.Name = "input";
+
+			var t = tensors.Find(a => a.Name == "fc1.weight");
+			model.fc1Weight = model.context.NewTensor(t.Type, t.Shape.ToArray());
+
+			t = tensors.Find(a => a.Name == "fc1.bias");
+			model.fc1Bias = model.context.NewTensor(t.Type, t.Shape.ToArray());
+
+			t = tensors.Find(a => a.Name == "fc2.weight");
+			model.fc2Weight = model.context.NewTensor(t.Type, t.Shape.ToArray());
+
+			t = tensors.Find(a => a.Name == "fc2.bias");
+			model.fc2Bias = model.context.NewTensor(t.Type, t.Shape.ToArray());
 
 			model.buffer = model.context.BackendAllocContextTensors(model.backend);
 
-			foreach (var tensor in tensors)
-			{
-				if (tensor.Name == "fc2.weight")
-				{
-					model.fc2Weight = LoadWeigth(model.context, pickleLoader, tensor);
-					model.fc2Weight.Name = "fc2.weight";
-				}
-				else if (tensor.Name == "fc2.bias")
-				{
-					model.fc2Bias = LoadWeigth(model.context, pickleLoader, tensor);
-					model.fc2Bias.Name = "fc2.bias";
-				}
-				else if (tensor.Name == "fc1.weight")
-				{
-					model.fc1Weight = LoadWeigth(model.context, pickleLoader, tensor);
-					model.fc1Weight.Name = "fc1.weight";
-				}
-				else if (tensor.Name == "fc1.bias")
-				{
-					model.fc1Bias = LoadWeigth(model.context, pickleLoader, tensor);
-					model.fc1Bias.Name = "fc1.bias";
-				}
-			}
-			return model;
-		}
+			model.fc1Weight.SetBackend(pickleLoader.ReadByteFromFile(tensors.First(a => a.Name == "fc1.weight")));
+			model.fc1Bias.SetBackend(pickleLoader.ReadByteFromFile(tensors.First(a => a.Name == "fc1.bias")));
+			model.fc2Weight.SetBackend(pickleLoader.ReadByteFromFile(tensors.First(a => a.Name == "fc2.weight")));
+			model.fc2Bias.SetBackend(pickleLoader.ReadByteFromFile(tensors.First(a => a.Name == "fc2.bias")));
 
-		private static SafeGGmlTensor LoadWeigth(SafeGGmlContext context, PickleLoader pickleLoader, Tensor commonTensor)
-		{
-			SafeGGmlTensor tensor = context.NewTensor(commonTensor.Type, commonTensor.Shape.ToArray());
-			byte[] bytes = pickleLoader.ReadByteFromFile(commonTensor);
-			tensor.SetData(bytes);
-			return tensor;
+
+			return model;
 		}
 
 		private static void BuildGraph(Model model)
 		{
 			model.graph = model.context.NewGraph();
 
-			SafeGGmlTensor re = model.context.MulMat(model.context.Reshape2d(model.fc1Weight, model.fc1Weight.Shape[1], model.fc1Weight.Shape[0]), model.input);
-			re = model.context.Add(re, model.fc1Bias);
+			SafeGGmlTensor re = model.context.Linear(model.input, model.context.Reshape2d(model.fc1Weight, model.fc1Weight.Shape[1], model.fc1Weight.Shape[0]), model.fc1Bias);
 			re = model.context.Relu(re);
-			re = model.context.MulMat(model.context.Reshape2d(model.fc2Weight, model.fc2Weight.Shape[1], model.fc2Weight.Shape[0]), re);
-			re = model.context.Add(re, model.fc2Bias);
+			re = model.context.Linear(re, model.context.Reshape2d(model.fc2Weight, model.fc2Weight.Shape[1], model.fc2Weight.Shape[0]), model.fc2Bias);
 			re = model.context.SoftMax(re);
 			re.Name = "probs";
 
@@ -149,10 +135,10 @@ namespace MNIST_CPU
 		}
 
 		// compute with backend
-		private static SafeGGmlTensor Compute(Model model, SafeGGmlGraphAllocr allocr)
+		private static SafeGGmlTensor Compute(Model model)
 		{
 			// allocate tensors
-			model.graph.GraphAllocate(allocr);
+			model.graph.GraphAllocate(model.allocr);
 
 			model.graph.BackendCompute(model.backend);
 

@@ -1,8 +1,9 @@
 ﻿using GGMLSharp;
 using System;
-using System.Diagnostics;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using static GGMLSharp.Structs;
 
 namespace MNIST_CNN
 {
@@ -10,9 +11,7 @@ namespace MNIST_CNN
 	{
 		static void Main(string[] args)
 		{
-			Console.WriteLine("MNIST-CNN Demo");
-			Console.WriteLine($"Has Cuda: {Common.HasCuda}");
-
+			Model model = LoadModel(@".\Assets\mnist-cnn-model.gguf");
 			byte[] bytes = File.ReadAllBytes(@".\Assets\image.raw");
 			Console.WriteLine("The image is:");
 			for (int i = 0; i < 28; i++)
@@ -30,93 +29,156 @@ namespace MNIST_CNN
 				digit[i] = bytes[i] / 255.0f;
 			}
 
-			MNISTmodel model = MNISTmodelLoad(@".\Assets\mnist-cnn-model.gguf");
-			int prediction = Eval(model, 1, digit, string.Empty);
+			int prediction = Eval(model, digit);
 			Console.WriteLine("Prediction: {0}", prediction);
 			Console.ReadKey();
 		}
-		private class MNISTmodel
+
+		private static int Eval(Model model, float[] digit)
 		{
+			model.input.SetBackend(digit);
+			// calculate the temporaly memory required to compute
+			model.allocr = new SafeGGmlGraphAllocr(model.buffer.BufferType);
+
+			// create the worst case graph for memory usage estimation
+			BuildGraph(model);
+			model.graph.Reserve(model.allocr);
+			ulong mem_size = model.allocr.GetBufferSize(0);
+			Console.WriteLine($"compute buffer size: {mem_size / 1024.0} KB");
+			SafeGGmlTensor probs =  Compute(model);
+			byte[] data = probs.GetBackend();
+			List<float> probsList = DataConverter.ConvertToFloats(data).ToList();
+			int prediction = probsList.IndexOf(probsList.Max());
+			model.context.Free();
+
+			return prediction;
+		}
+
+
+		public class Model
+		{
+			public SafeGGmlTensor input;
 			public SafeGGmlTensor conv2d1Kernel;
 			public SafeGGmlTensor conv2d1Bias;
 			public SafeGGmlTensor conv2d2Kernel;
 			public SafeGGmlTensor conv2d2Bias;
 			public SafeGGmlTensor denseWeight;
 			public SafeGGmlTensor denseBias;
-			public SafeGGmlContext ctx = new SafeGGmlContext();
-		};
+			public SafeGGmlContext context;
+			public SafeGGmlBackend backend;
+			public SafeGGmlBackendBuffer buffer;
+			public SafeGGmlGraph graph;
+			public SafeGGmlGraphAllocr allocr;
+		}
 
-		private static MNISTmodel MNISTmodelLoad(string fname)
+		public static Model LoadModel(string path)
 		{
-			MNISTmodel model = new MNISTmodel();
-			SafeGGufContext ctx = SafeGGufContext.InitFromFile(fname, model.ctx, false);
-			if (!ctx.IsHeaderMagicMatch)
+			SafeGGmlContext ggmlCtx = new SafeGGmlContext();
+			SafeGGufContext ggufCtx = SafeGGufContext.InitFromFile(path, ggmlCtx, false);
+			Model model = new Model();
+
+			if (SafeGGmlBackend.HasCuda)
 			{
-				throw new FileLoadException("gguf_init_from_file() failed");
+				model.backend = SafeGGmlBackend.CudaInit(); // init device 0
 			}
-			model.conv2d1Kernel = model.ctx.GetTensor("kernel1");
-			model.conv2d1Bias = model.ctx.GetTensor("bias1");
-			model.conv2d2Kernel = model.ctx.GetTensor("kernel2");
-			model.conv2d2Bias = model.ctx.GetTensor("bias2");
-			model.denseWeight = model.ctx.GetTensor("dense_w");
-			model.denseBias = model.ctx.GetTensor("dense_b");
+			else
+			{
+				model.backend = SafeGGmlBackend.CpuInit();
+			}
+
+			if (model.backend == null)
+			{
+				Console.WriteLine("ggml_backend_cuda_init() failed.");
+				Console.WriteLine("we while use ggml_backend_cpu_init() instead.");
+
+				// if there aren't GPU Backends fallback to CPU backend
+				model.backend = SafeGGmlBackend.CpuInit();
+			}
+
+			model.context = new SafeGGmlContext(IntPtr.Zero, NoAllocateMemory: true);
+			model.input = model.context.NewTensor2d(GGmlType.GGML_TYPE_F32, 28, 28);
+
+			SafeGGmlTensor t = ggmlCtx.GetTensor("kernel1");
+			model.conv2d1Kernel = model.context.NewTensor(t.Type, t.Shape);
+
+			t = ggmlCtx.GetTensor("bias1");
+			model.conv2d1Bias = model.context.NewTensor(t.Type, t.Shape);
+
+			t = ggmlCtx.GetTensor("kernel2");
+			model.conv2d2Kernel = model.context.NewTensor(t.Type, t.Shape);
+
+			t = ggmlCtx.GetTensor("bias2");
+			model.conv2d2Bias = model.context.NewTensor(t.Type, t.Shape);
+
+			t = ggmlCtx.GetTensor("dense_w");
+			model.denseWeight = model.context.NewTensor(t.Type, t.Shape);
+
+			t = ggmlCtx.GetTensor("dense_b");
+			model.denseBias = model.context.NewTensor(t.Type, t.Shape);
+
+			model.buffer = model.context.BackendAllocContextTensors(model.backend);
+
+			byte[] bytes = ggmlCtx.GetTensor("kernel1").GetData();
+			model.conv2d1Kernel.SetBackend(bytes);
+
+			bytes = ggmlCtx.GetTensor("bias1").GetData();
+			model.conv2d1Bias.SetBackend(bytes);
+
+			bytes = ggmlCtx.GetTensor("kernel2").GetData();
+			model.conv2d2Kernel.SetBackend(bytes);
+
+			bytes = ggmlCtx.GetTensor("bias2").GetData();
+			model.conv2d2Bias.SetBackend(bytes);
+
+			bytes = ggmlCtx.GetTensor("dense_w").GetData();
+			model.denseWeight.SetBackend(bytes);
+
+			bytes = ggmlCtx.GetTensor("dense_b").GetData();
+			model.denseBias.SetBackend(bytes);
+
 			return model;
 		}
 
-		private static int Eval(MNISTmodel model, int threads, float[] digit, string graphName)
+		private static void BuildGraph(Model model)
 		{
-			SafeGGmlContext context = new SafeGGmlContext();
-			SafeGGmlGraph graph = context.NewGraph();
+			model.graph = model.context.NewGraph();
 
-			SafeGGmlTensor input = context.NewTensor4d(Structs.GGmlType.GGML_TYPE_F32, 28, 28, 1, 1);
-			input.SetData(digit);
-			input.Name = "input";
-
-			SafeGGmlTensor cur = context.Conv2d(input, model.conv2d1Kernel, model.conv2d1Bias);
-			cur = context.Relu(cur);
+			SafeGGmlTensor cur = model.context.Conv2d(model.input, model.conv2d1Kernel, model.conv2d1Bias);
+			cur = model.context.Relu(cur);
 			// Output shape after Conv2D: (26 26 32 1)
-			cur = context.Pool2d(cur);
+			cur = model.context.Pool2d(cur);
 			// Output shape after MaxPooling2D: (13 13 32 1)
-			cur = context.Conv2d(cur,model.conv2d2Kernel , model.conv2d2Bias);
+			cur = model.context.Conv2d(cur, model.conv2d2Kernel, model.conv2d2Bias);
 
-			cur = context.Relu(cur);
+			cur = model.context.Relu(cur);
 			// Output shape after Conv2D: (11 11 64 1)
-			cur = context.Pool2d(cur);
+			cur = model.context.Pool2d(cur);
 			// Output shape after MaxPooling2D: (5 5 64 1)
-			cur = context.Permute(cur, 1, 2, 0, 3);
-			cur = context.Cont(cur);
+			cur = model.context.Permute(cur, 1, 2, 0, 3);
+			cur = model.context.Cont(cur);
 			// Output shape after permute: (64 5 5 1)
-			cur = context.Reshape2d(cur, 1600, 1);
+			cur = model.context.Reshape2d(cur, 1600, 1);
 			// Final Dense layer
-			cur = context.Linear(cur, model.denseWeight, model.denseBias);
+			cur = model.context.Linear(cur, model.denseWeight, model.denseBias);
+			cur = model.context.SoftMax(cur);
+			cur.Name = "probs";
 
-			SafeGGmlTensor probs = context.SoftMax(cur);
-			probs.Name = "probs";
+			model.graph.BuildForwardExpend(cur);
 
-			graph.BuildForwardExpend(probs);
-
-			Stopwatch stopwatch = Stopwatch.StartNew();
-
-			graph.ComputeWithGGmlContext(context, threads);
-
-			stopwatch.Stop();
-			Console.WriteLine("compute Time: {0} ticks.", stopwatch.ElapsedTicks);
-
-			//ggml_graph_print(&graph);
-			//Native.ggml_graph_dump_dot(graph, null, "mnist-cnn.dot");
-
-			if (!string.IsNullOrEmpty(graphName))
-			{
-				// export the compute graph for later use
-				// see the "mnist-cpu" example
-				graph.Export(graphName);
-				Console.WriteLine("exported compute graph to {0}\n", graphName);
-			}
-			float[] probs_list = probs.GetDataInFloats();
-			int prediction = probs_list.ToList().IndexOf(probs_list.Max());
-			model.ctx.Free();
-			context.Free();
-			return prediction;
 		}
+
+		// compute with backend
+		private static SafeGGmlTensor Compute(Model model)
+		{
+			// allocate tensors
+			model.graph.GraphAllocate(model.allocr);
+
+			model.graph.BackendCompute(model.backend);
+
+			// in this case, the output tensor is the last one in the graph
+			return model.graph.Nodes[model.graph.NodeCount - 1];
+		}
+
+
 	}
 }

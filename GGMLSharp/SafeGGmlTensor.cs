@@ -41,8 +41,15 @@ namespace GGMLSharp
 		{
 			get { return Marshal.PtrToStringAnsi((IntPtr)tensor->name); }
 			set { Native.ggml_set_name(this, value); }
-
 		}
+
+		public void FormatName(string name)
+		{
+			Native.ggml_format_name(this, name);
+		}
+
+		public string ViewName { get; set; }
+
 		public long[] Shape
 		{
 			get
@@ -79,8 +86,6 @@ namespace GGMLSharp
 
 		public SafeGGmlTensor ViewSource => new SafeGGmlTensor(tensor->view_src);
 
-		public long PrefRuns => tensor->perf_runs;
-		public long PrefTimeUse => tensor->perf_time_us;
 
 		public Structs.GGmlOperation Operations
 		{
@@ -88,7 +93,6 @@ namespace GGMLSharp
 			set { tensor->op = (InternalStructs.ggml_op)value; }
 		}
 
-		public long PrefCycles => tensor->perf_cycles;
 
 		public SafeGGmlTensor[] Sources
 		{
@@ -111,7 +115,6 @@ namespace GGMLSharp
 				tensor->data = Marshal.AllocHGlobal(data.Length);
 			}
 			Marshal.Copy(data, 0, tensor->data, data.Length);
-			//handle = (IntPtr)tensor;
 		}
 
 		public void SetData(float[] data)
@@ -122,23 +125,28 @@ namespace GGMLSharp
 				tensor->data = Marshal.AllocHGlobal(data.Length * sizeof(float));
 			}
 			Marshal.Copy(data, 0, tensor->data, data.Length);
-			//handle = (IntPtr)tensor;
 		}
 
-		public void SetFloats(float[] data)
+		public void SetData(int[] data)
 		{
 			ThrowIfNotInitialized();
-			for (int i = 0; i < data.Length; i++)
+			if (tensor->data == IntPtr.Zero)
 			{
-				Native.ggml_set_f32_1d(this, i, data[i]);
+				tensor->data = Marshal.AllocHGlobal(data.Length * sizeof(float));
 			}
+			Marshal.Copy(data, 0, tensor->data, data.Length);
 		}
 
+		//public void SetData(float data, int index)
+		//{
+		//	ThrowIfNotInitialized();
+		//	Native.ggml_set_f32_1d(this, index, data);
+		//}
 
-		public void SetFloat(int index, float data)
+		public void SetData(float data, int ne0, int ne1 = 0, int ne2 = 0, int ne3 = 0)
 		{
 			ThrowIfNotInitialized();
-			Native.ggml_set_f32_1d(this, index, data);
+			Native.ggml_set_f32_nd(this, ne0, ne1, ne2, ne3, data);
 		}
 
 		public float GetFloat(int n0 = 0, int n1 = 0, int n2 = 0, int n3 = 0)
@@ -159,7 +167,6 @@ namespace GGMLSharp
 			return floats;
 		}
 
-
 		public byte[] GetData()
 		{
 			ulong size = ElementsSize * (ulong)ElementsCount;
@@ -176,13 +183,30 @@ namespace GGMLSharp
 			Native.ggml_backend_tensor_set(this, data, offset, size);
 		}
 
+		public void SetDataToBackend()
+		{
+			ThrowIfNotInitialized();
+			if (Data == IntPtr.Zero)
+			{
+				throw new ArgumentNullException("data is null");
+			}
+			SetBackend(GetData());
+		}
+
 		public void SetBackend(Array data, ulong offset = 0, ulong size = 0)
 		{
 			ThrowIfNotInitialized();
+
 			IntPtr ptr = Marshal.UnsafeAddrOfPinnedArrayElement(data, 0);
 			size = size == 0 ? ElementsSize * (ulong)ElementsCount : size;
+			int sz = Marshal.SizeOf(data.GetType().GetElementType());
+			if ((ulong)(sz * data.Length) != size)
+			{
+				throw new ArgumentOutOfRangeException("data size is not fit");
+			}
 			Native.ggml_backend_tensor_set(this, ptr, offset, size);
 		}
+
 
 
 		public long ElementsCount => Native.ggml_nelements(this);
@@ -211,28 +235,58 @@ namespace GGMLSharp
 			Native.ggml_set_output(this);
 		}
 
-		public void GetRandomTensorInFloat(float max, float min)
+		public void SetRandomTensorInFloat(float max, float min)
 		{
+			ThrowIfNotInitialized();
+			Random random = new Random();
+
+			long size = Shape[0] * Shape[1] * Shape[2] * Shape[3];
+			for (long i = 0; i < size; i++)
+			{
+				float f = (float)random.NextDouble() * (max - min) + min;
+				SetData(f, (int)i);
+			}
+		}
+
+
+		public void SetBackendRandomTensorInFloat(float max, float min)
+		{
+			ThrowIfNotInitialized();
 			Random random = new Random();
 
 			long size = Shape[0] * Shape[1] * Shape[2] * Shape[3];
 			float[] floats = new float[size];
 			for (long i = 0; i < size; i++)
 			{
-				float f = (float)random.NextDouble() * (max - min) + min;
-				SetFloat((int)i, f);
+				floats[i] = (float)random.NextDouble() * (max - min) + min;
 			}
+			SetBackend(floats);
+		}
+
+		public void SetZero()
+		{
+			ThrowIfNotInitialized();
+			Native.ggml_set_zero(this);
 		}
 
 		public bool AreSameShape(SafeGGmlTensor tensor)
 		{
+			ThrowIfNotInitialized();
 			return Native.ggml_are_same_shape(this, tensor);
 		}
 
 		public bool IsContiguous()
 		{
+			ThrowIfNotInitialized();
 			return Native.ggml_is_contiguous(this);
 		}
+
+		public bool IsQuantized()
+		{
+			ThrowIfNotInitialized();
+			return Native.ggml_is_quantized(this.Type);
+		}
+
 
 
 

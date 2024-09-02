@@ -48,3 +48,7 @@ GGMLSharp contains all ggml shared libs and some demos.
 ### TestOpt
 
 [TestOpt](./Demos/TestOpt/) is a basic demo for optimizar.
+
+### Yolov3Tiny
+
+[Yolov3Tiny](./Demos/Yolov3Tiny/) is a Demo shows how to implement YOLO object detection with ggml using pretrained model. The weight have been converted to gguf.

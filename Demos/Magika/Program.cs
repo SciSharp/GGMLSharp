@@ -97,25 +97,7 @@ namespace Magika
 			MagikaModel model = new MagikaModel();
 			SafeGGufContext ggufContext = SafeGGufContext.InitFromFile(@"./Assets/magika.gguf", model.context, true);
 
-
-			if (SafeGGmlBackend.HasCuda)
-			{
-				model.backend = SafeGGmlBackend.CudaInit(); // init device 0
-			}
-			else
-			{
-				model.backend = SafeGGmlBackend.CpuInit();
-			}
-
-			if (model.backend == null)
-			{
-				Console.WriteLine("ggml_backend_cuda_init() failed.");
-				Console.WriteLine("we while use ggml_backend_cpu_init() instead.");
-
-				// if there aren't GPU Backends fallback to CPU backend
-				model.backend = SafeGGmlBackend.CpuInit();
-			}
-
+			model.backend = SafeGGmlBackend.CpuInit(); // init device 0
 
 			if (!ggufContext.IsHeaderMagicMatch)
 			{
@@ -199,7 +181,7 @@ namespace Magika
 			cur = ggmlContext.Cont(ggmlContext.Transpose(cur));
 
 			// layer normalization
-			cur = ggmlContext.Normal(cur, hparams.normEps);
+			cur = ggmlContext.Norm(cur, hparams.normEps);
 			cur = ggmlContext.Mul(cur, model.layerNormGamma); // [384, 512, n_files]
 			cur = ggmlContext.Add(cur, model.layerNormBeta);  // [384, 512, n_files]
 
@@ -220,7 +202,7 @@ namespace Magika
 			cur = ggmlContext.Reshape2d(cur, 256, 1); // [256, n_files]
 
 			// layer normalization 1
-			cur = ggmlContext.Normal(cur, hparams.normEps);
+			cur = ggmlContext.Norm(cur, hparams.normEps);
 			cur = ggmlContext.Mul(cur, model.layerNorm1Gamma); // [256, n_files]
 			cur = ggmlContext.Add(cur, model.layerNorm1Beta);  // [256, n_files]
 

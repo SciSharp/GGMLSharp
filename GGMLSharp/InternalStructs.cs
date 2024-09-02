@@ -9,7 +9,6 @@ using int64_t = System.Int64;
 using int8_t = System.SByte;
 using size_t = System.UInt64;
 using uint16_t = System.UInt16;
-using uint32_t = System.UInt32;
 using uint64_t = System.UInt64;
 using uint8_t = System.Byte;
 
@@ -148,7 +147,7 @@ namespace GGMLSharp
 			GGML_FTYPE_MOSTLY_Q4_1 = 3,
 
 			/// <summary>
-			/// tok_embeddings.weight and output.weight are F16
+			/// tok_embeddings.Weight and output.Weight are F16
 			/// </summary>
 			GGML_FTYPE_MOSTLY_Q4_1_SOME_F16 = 4,
 
@@ -463,12 +462,12 @@ namespace GGMLSharp
 			public ggml_tensor* grad;
 			public fixed long src[GGML_MAX_SRC];
 
-			/// <summary>
-			/// performance
-			/// </summary>
-			public int perf_runs;
-			public int64_t perf_cycles;
-			public int64_t perf_time_us;
+			///// <summary>
+			///// performance
+			///// </summary>
+			//public int perf_runs;
+			//public int64_t perf_cycles;
+			//public int64_t perf_time_us;
 
 			public ggml_tensor* view_src;
 			public size_t view_offs;
@@ -482,7 +481,7 @@ namespace GGMLSharp
 			/// </summary>
 			public IntPtr extra;
 
-			public fixed byte padding[8];
+			//public fixed byte padding[8];
 		};
 
 		public size_t GGML_TENSOR_SIZE => (ulong)sizeof(ggml_tensor);
@@ -531,12 +530,12 @@ namespace GGMLSharp
 
 			public ggml_cgraph_eval_order order;
 
-			/// <summary>
-			/// performance
-			/// </summary>
-			public int perf_runs;
-			public int64_t perf_cycles;
-			public int64_t perf_time_us;
+			///// <summary>
+			///// performance
+			///// </summary>
+			//public int perf_runs;
+			//public int64_t perf_cycles;
+			//public int64_t perf_time_us;
 		};
 
 		/// <summary>
@@ -675,8 +674,8 @@ namespace GGMLSharp
 				public int n_iter;
 
 				public float sched; // schedule multiplier (fixed, Decay or warmup)
-				public float decay; // weight Decay for AdamW, use 0.0f to disable
-				public int decay_min_ndim; // minimum number of tensor dimension to apply weight Decay
+				public float decay; // Weight Decay for AdamW, use 0.0f to disable
+				public int decay_min_ndim; // minimum number of tensor dimension to apply Weight Decay
 				public float alpha; // learning rate
 				public float beta1;
 				public float beta2;
@@ -819,7 +818,7 @@ namespace GGMLSharp
 		{
 			public fixed byte magic[4];
 
-			public uint32_t version;
+			public uint version;
 
 			/// <summary>
 			/// GGUFv2
@@ -857,7 +856,7 @@ namespace GGMLSharp
 			[FieldOffset(0)] public int8_t int8;
 			[FieldOffset(0)] public uint16_t uint16;
 			[FieldOffset(0)] public int16_t int16;
-			[FieldOffset(0)] public uint32_t uint32;
+			[FieldOffset(0)] public uint uint32;
 			[FieldOffset(0)] public int32_t int32;
 			[FieldOffset(0)] public float float32;
 			[FieldOffset(0)] public uint64_t uint64;
@@ -888,7 +887,7 @@ namespace GGMLSharp
 		{
 			public gguf_str name;
 
-			public uint32_t n_dims;
+			public uint n_dims;
 			public fixed uint64_t ne[GGML_MAX_DIMS];
 
 			public ggml_type type;
@@ -1065,7 +1064,7 @@ namespace GGMLSharp
 
 		// check if the backend wants to run an operation, even if the weights are allocated in a CPU buffer
 		// these should be expensive operations with large batch sizes that may benefit from running on this backend
-		// even if the weight has to be copied from the CPU temporarily
+		// even if the Weight has to be copied from the CPU temporarily
 		public delegate void offload_op(ggml_backend* backend, ggml_tensor* op);
 
 		/// <summary>
@@ -1107,8 +1106,8 @@ namespace GGMLSharp
 		{
 			public ggml_guid_t guid;
 
-			ggml_backend_i iface;
-			ggml_backend_context_t context;
+			public ggml_backend_i iface;
+			public ggml_backend_context_t context;
 		};
 
 		[StructLayout(LayoutKind.Sequential)]
@@ -1157,7 +1156,7 @@ namespace GGMLSharp
 
 			// check if the backend wants to run an operation, even if the weights are allocated in a CPU buffer
 			// these should be expensive operations with large batch sizes that may benefit from running on this backend
-			// even if the weight has to be copied from the CPU temporarily
+			// even if the Weight has to be copied from the CPU temporarily
 			public offload_op offload_op;
 
 			// ( ) event synchronization

@@ -165,6 +165,12 @@ namespace GGMLSharp
 			return Native.ggml_add(this, a, b);
 		}
 
+		public SafeGGmlTensor AddCust(SafeGGmlTensor a, SafeGGmlTensor b, Structs.GGmlType type)
+		{
+			ThrowIfNotInitialized();
+			return Native.ggml_add_cast(this, a, b, type);
+		}
+
 		public SafeGGmlTensor Gelu(SafeGGmlTensor a)
 		{
 			ThrowIfNotInitialized();
@@ -175,6 +181,12 @@ namespace GGMLSharp
 		{
 			ThrowIfNotInitialized();
 			return Native.ggml_relu(this, a);
+		}
+
+		public SafeGGmlTensor LeakyRelu(SafeGGmlTensor a, float negtiveSlope, bool inplace)
+		{
+			ThrowIfNotInitialized();
+			return Native.ggml_leaky_relu(this, a, negtiveSlope, inplace);
 		}
 
 
@@ -207,7 +219,7 @@ namespace GGMLSharp
 			return Native.ggml_reshape_4d(this, a, ne0, ne1, ne2, ne3);
 		}
 
-		public SafeGGmlTensor Normal(SafeGGmlTensor a, float eps)
+		public SafeGGmlTensor Norm(SafeGGmlTensor a, float eps)
 		{
 			ThrowIfNotInitialized();
 			return Native.ggml_norm(this, a, eps);
@@ -225,7 +237,13 @@ namespace GGMLSharp
 			return Native.ggml_pool_1d(this, a, (ggml_op_pool)op, k0, s0, p0);
 		}
 
-		public SafeGGmlTensor Pool2d(SafeGGmlTensor a, Structs.GGmlOpPool op = Structs.GGmlOpPool.GGML_OP_POOL_MAX, int k0 = 2, int k1 = 2, int s0 = 2, int s1 = 2, int p0 = 0, int p1 = 0)
+		public SafeGGmlTensor ArgMax(SafeGGmlTensor tensor)
+		{
+			ThrowIfNotInitialized();
+			return Native.ggml_argmax(this, tensor);
+		}
+
+		public SafeGGmlTensor Pool2d(SafeGGmlTensor a, Structs.GGmlOpPool op = Structs.GGmlOpPool.GGML_OP_POOL_MAX, int k0 = 2, int k1 = 2, int s0 = 2, int s1 = 2, float p0 = 0, float p1 = 0)
 		{
 			ThrowIfNotInitialized();
 			return Native.ggml_pool_2d(this, a, (ggml_op_pool)op, k0, k1, s0, s1, p0, p1);
@@ -288,6 +306,7 @@ namespace GGMLSharp
 		{
 			return Native.ggml_opt(IntPtr.Zero, @params, f);
 		}
+
 
 		public SafeGGmlTensor Conv2d(SafeGGmlTensor a, SafeGGmlTensor b, int s0 = 1, int s1 = 1, int p0 = 0, int p1 = 0, int d0 = 1, int d1 = 1)
 		{
@@ -426,7 +445,13 @@ namespace GGMLSharp
 		public SafeGGmlTensor GeluInplace(SafeGGmlTensor tensor)
 		{
 			ThrowIfNotInitialized();
-			return Native.ggml_elu_inplace(this, tensor);
+			return Native.ggml_gelu(this, tensor);
+		}
+
+		public SafeGGmlTensor QuickGeluInplace(SafeGGmlTensor tensor)
+		{
+			ThrowIfNotInitialized();
+			return Native.ggml_gelu_quick_inplace(this, tensor);
 		}
 
 		public SafeGGmlTensor Conv2dSkP0(SafeGGmlTensor a, SafeGGmlTensor b)
@@ -475,19 +500,19 @@ namespace GGMLSharp
 		public SafeGGmlTensor LayerNorm(SafeGGmlTensor tensor, SafeGGmlTensor weight, SafeGGmlTensor bias, float eps = 1e-05f)
 		{
 			ThrowIfNotInitialized();
-			SafeGGmlTensor re = Normal(tensor, eps);
+			SafeGGmlTensor re = Norm(tensor, eps);
 			re = Mul(re, weight);
 			re = Add(re, bias);
 			return re;
 		}
 
-		public SafeGGmlTensor GroupNormal(SafeGGmlTensor tensor, int groups)
+		public SafeGGmlTensor GroupNorm(SafeGGmlTensor tensor, int groups)
 		{
 			ThrowIfNotInitialized();
 			return Native.ggml_group_norm(this, tensor, groups);
 		}
 
-		public SafeGGmlTensor GroupNormal(SafeGGmlTensor tensor, SafeGGmlTensor weight, SafeGGmlTensor bias, int groups)
+		public SafeGGmlTensor GroupNorm(SafeGGmlTensor tensor, SafeGGmlTensor weight, SafeGGmlTensor bias, int groups)
 		{
 			ThrowIfNotInitialized();
 			// Is there anything wrong?
@@ -496,7 +521,7 @@ namespace GGMLSharp
 				weight = Reshape4d(weight, 1, 1, weight.Shape[0], 1);
 				bias = Reshape4d(bias, 1, 1, bias.Shape[0], 1);
 			}
-			SafeGGmlTensor re = GroupNormal(tensor, groups);
+			SafeGGmlTensor re = GroupNorm(tensor, groups);
 			re = Mul(re, weight);
 			re = Add(re, bias);
 			return re;
@@ -509,7 +534,7 @@ namespace GGMLSharp
 			// normalize along channel dimmension
 			// TODO: better implementation
 			layer = Permute(
-				Normal(
+				Norm(
 					Cont(
 						Permute(layer, 1, 2, 0, 3)),
 					eps),
@@ -553,12 +578,22 @@ namespace GGMLSharp
 			SafeGGmlTensor qkv = MulMat(kqSoftmax, Cont(Transpose(v)));
 
 			SafeGGmlTensor qkvMerged = Cont(Transpose(qkv));
+
 			qkvMerged = Cont(Permute(qkvMerged, 0, 2, 1, 3));
 			qkvMerged = Reshape3d(qkvMerged, qkvMerged.Shape[0] * qkvMerged.Shape[1], qkvMerged.Shape[2], qkvMerged.Shape[3]);
 			qkvMerged = Linear(qkvMerged, outputWeight, outputBias);
 
 			return qkvMerged;
+		}
 
+		public SafeGGmlTensor SelfAttention(SafeGGmlTensor q, SafeGGmlTensor k, SafeGGmlTensor v)
+		{
+			SafeGGmlTensor qk = MulMat(k, q);
+			SafeGGmlTensor kqScaled = Scale(qk, 1.0f / (float)Math.Sqrt(q.Shape[0]));
+			SafeGGmlTensor kqSoftmax = Softmax(kqScaled);
+			SafeGGmlTensor qkv = MulMat(kqSoftmax, Cont(Transpose(v)));
+			SafeGGmlTensor qkvMerged = Cont(Transpose(qkv));
+			return qkvMerged;
 		}
 
 		public SafeGGmlTensor SelfAttention(SafeGGmlTensor tensor, SafeGGmlTensor queriesWeight, SafeGGmlTensor queriesBias, SafeGGmlTensor keysWeight, SafeGGmlTensor keysBias, SafeGGmlTensor valuesWeight, SafeGGmlTensor valuesBias, SafeGGmlTensor outputWeight, SafeGGmlTensor outputBias, long headers)
@@ -571,7 +606,7 @@ namespace GGMLSharp
 			return SelfAttention(x, y, y, queriesWeight, queriesBias, keysWeight, keysBias, valuesWeight, valuesBias, outputWeight, outputBias, headers);
 		}
 
-		public SafeGGmlTensor FlashAttention(SafeGGmlTensor tensor, SafeGGmlTensor queriesWeight, SafeGGmlTensor queriesBias, SafeGGmlTensor keysWeight, SafeGGmlTensor keysBias, SafeGGmlTensor valuesWeight, SafeGGmlTensor valuesBias, SafeGGmlTensor outputWeight, SafeGGmlTensor outputBias, long headers, bool masked = false)
+		public SafeGGmlTensor FlashAttention(SafeGGmlTensor tensor, SafeGGmlTensor queriesWeight, SafeGGmlTensor queriesBias, SafeGGmlTensor keysWeight, SafeGGmlTensor keysBias, SafeGGmlTensor valuesWeight, SafeGGmlTensor valuesBias, SafeGGmlTensor outputWeight, SafeGGmlTensor outputBias, bool masked = false)
 		{
 			ThrowIfNotInitialized();
 			SafeGGmlTensor qCur = Linear(tensor, queriesWeight, queriesBias);
@@ -583,6 +618,172 @@ namespace GGMLSharp
 			return attn;
 
 		}
+
+		public SafeGGmlTensor FlashAttention(SafeGGmlTensor q, SafeGGmlTensor k, SafeGGmlTensor v, bool masked)
+		{
+			ThrowIfNotInitialized();
+			return Native.ggml_flash_attn(this, q, k, v, masked);
+		}
+
+		public SafeGGmlTensor FlashAttentionEx(SafeGGmlTensor q, SafeGGmlTensor k, SafeGGmlTensor v, SafeGGmlTensor mask, float scale, float maxBias)
+		{
+			ThrowIfNotInitialized();
+			return Native.ggml_flash_attn_ext(this, q, k, v, mask, scale, maxBias);
+		}
+
+		public SafeGGmlTensor FlashAttentionEx(SafeGGmlTensor q, SafeGGmlTensor k, SafeGGmlTensor v, float scale, float maxBias)
+		{
+			ThrowIfNotInitialized();
+			SafeGGmlTensor mask = NewTensor2d(k.Type, k.Shape[1], Native.GGML_PAD((int)q.Shape[1], Structs.GGML_KQ_MASK_PAD));
+			return Native.ggml_flash_attn_ext(this, q, k, v, mask, scale, maxBias);
+		}
+
+		public SafeGGmlTensor GetRows(SafeGGmlTensor a, SafeGGmlTensor b)
+		{
+			ThrowIfNotInitialized();
+			return Native.ggml_get_rows(this, a, b);
+		}
+
+		public SafeGGmlTensor Dup(SafeGGmlTensor tensor)
+		{
+			ThrowIfNotInitialized();
+			return Native.ggml_dup(this, tensor);
+		}
+
+		public void SetNoAlloc(bool noAllow)
+		{
+			ThrowIfNotInitialized();
+			Native.ggml_set_no_alloc(this, noAllow);
+		}
+
+		public SafeGGmlTensor Quantization(SafeGGmlTensor tensor, Structs.GGmlType type)
+		{
+			if (tensor.Type == type)
+			{
+				return tensor;
+			}
+			else
+			{
+				SafeGGmlTensor t = new SafeGGmlTensor(this, type, tensor.Shape);
+				byte[] bytes = tensor.GetBackend();
+
+				if (tensor.Type == Structs.GGmlType.GGML_TYPE_F32)
+				{
+					if (type == Structs.GGmlType.GGML_TYPE_F16)
+					{
+						DataConverter.Fp32ToFp16Bytes(bytes);
+						t.SetBackend(bytes);
+						return t;
+					}
+
+					if (type == Structs.GGmlType.GGML_TYPE_BF16)
+					{
+						DataConverter.Fp32ToBf16Bytes(bytes);
+						t.SetBackend(bytes);
+						return t;
+					}
+				}
+
+				if (tensor.Type == Structs.GGmlType.GGML_TYPE_F16)
+				{
+					if (type == Structs.GGmlType.GGML_TYPE_F32)
+					{
+						DataConverter.Fp16ToFp32Bytes(ref bytes);
+						t.SetBackend(bytes);
+						return t;
+					}
+
+					if (type == Structs.GGmlType.GGML_TYPE_BF16)
+					{
+						DataConverter.Fp16ToBf16Bytes(bytes);
+						t.SetBackend(bytes);
+						return t;
+					}
+				}
+
+				if (tensor.Type == Structs.GGmlType.GGML_TYPE_BF16)
+				{
+					if (type == Structs.GGmlType.GGML_TYPE_F32)
+					{
+						DataConverter.Bf16ToFp32Bytes(ref bytes);
+						t.SetBackend(bytes);
+						return t;
+					}
+
+					if (type == Structs.GGmlType.GGML_TYPE_F16)
+					{
+						DataConverter.Bf16ToFp16Bytes(bytes);
+						t.SetBackend(bytes);
+						return t;
+					}
+				}
+
+				throw new ArgumentException("Type not support");
+			}
+
+		}
+
+		public SafeGGmlTensor DiagMaskInfInplace(SafeGGmlTensor input, int past)
+		{
+			ThrowIfNotInitialized();
+			return Native.ggml_diag_mask_inf_inplace(this, input, past);
+		}
+
+		public SafeGGmlTensor Concat(SafeGGmlTensor a, SafeGGmlTensor b, int dim)
+		{
+			ThrowIfNotInitialized();
+			return Native.ggml_concat(this, a, b, dim);
+		}
+
+		public SafeGGmlBackendBuffer BackendAllocCtxTensorsFromBufferType(SafeGGmlBackendBufferType buffType)
+		{
+			ThrowIfNotInitialized();
+			return Native.ggml_backend_alloc_ctx_tensors_from_buft(this, buffType);
+		}
+
+		public ulong SetScratch()
+		{
+			ThrowIfNotInitialized();
+			InternalStructs.ggml_scratch scratch = new ggml_scratch()
+			{
+				data = IntPtr.Zero,
+				offs = 0,
+				size = 0,
+			};
+			return Native.ggml_set_scratch(this, scratch);
+		}
+
+		public SafeGGmlTensor RopeExt(SafeGGmlTensor a, SafeGGmlTensor b, SafeGGmlTensor c, int dimCount, int mode, int ctxCount, float freqBase, float freqScale, float extFactor, float attnFactor, float betaFast, float betaSlow)
+		{
+			ThrowIfNotInitialized();
+			return Native.ggml_rope_ext(this, a, b, c, dimCount, mode, ctxCount, freqBase, freqScale, extFactor, attnFactor, betaFast, betaSlow);
+		}
+
+		public SafeGGmlTensor RmsNormal(SafeGGmlTensor a, float eps)
+		{
+			ThrowIfNotInitialized();
+			return Native.ggml_rms_norm(this, a, eps);
+		}
+
+		public SafeGGmlTensor SiLU(SafeGGmlTensor tensor)
+		{
+			ThrowIfNotInitialized();
+			return Native.ggml_silu(this, tensor);
+		}
+
+		public SafeGGmlTensor Div(SafeGGmlTensor a, SafeGGmlTensor b)
+		{
+			ThrowIfNotInitialized();
+			return Native.ggml_div(this, a, b);
+		}
+
+		public SafeGGmlTensor Upscale(SafeGGmlTensor a, int factor)
+		{
+			ThrowIfNotInitialized();
+			return Native.ggml_upscale(this, a, factor);
+		}
+
+
 	}
 
 

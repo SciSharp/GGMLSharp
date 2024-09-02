@@ -7,14 +7,22 @@ namespace GGMLSharp
 	{
 		public bool IsInitialized => handle != IntPtr.Zero;
 		private ggml_cgraph* graph => (ggml_cgraph*)handle;
-		public int NodeCount => graph->n_nodes;
-		public int LeafCount => graph->n_leafs;
+		public int NodeCount
+		{
+			get { return graph->n_nodes; }
+			set { graph->n_nodes = value; }
+		}
+		public int LeafCount
+		{
+			get { return graph->n_leafs; }
+			set { graph->n_leafs = value; }
+		}
 
-		public long TimeUse => graph->perf_time_us;
+		//public long TimeUse => graph->perf_time_us;
 
-		public long Cycles => graph->perf_cycles;
+		//public long Cycles => graph->perf_cycles;
 
-		public int Runs => graph->perf_runs;
+		//public int Runs => graph->perf_runs;
 
 		public Structs.GGmlGraphEvalOrder EvalOrder => (Structs.GGmlGraphEvalOrder)graph->order;
 
@@ -123,6 +131,7 @@ namespace GGMLSharp
 
 		public void Export(string name)
 		{
+			ThrowIfNotInitialized();
 			Native.ggml_graph_export(this, name);
 		}
 
@@ -135,7 +144,32 @@ namespace GGMLSharp
 
 		public bool Reserve(SafeGGmlGraphAllocr allocr)
 		{
+			ThrowIfNotInitialized();
 			return Native.ggml_gallocr_reserve(allocr, this);
+		}
+
+		public void BuildBackwardGradientCheckpointing(SafeGGmlContext ctx, SafeGGmlGraph gb, SafeGGmlGraph temp, SafeGGmlTensor[] checkpoints)
+		{
+			ThrowIfNotInitialized();
+			Native.ggml_build_backward_gradient_checkpointing(ctx, this, gb, temp, checkpoints, checkpoints.Length);
+		}
+
+		public void Copy(SafeGGmlGraph gf)
+		{
+			ThrowIfNotInitialized();
+			Native.ggml_graph_cpy(this, gf);
+		}
+
+		public void BuildBackwardExpend(SafeGGmlContext ctx, SafeGGmlGraph gb, bool keep)
+		{
+			ThrowIfNotInitialized();
+			Native.ggml_build_backward_expand(ctx, this, gb, keep);
+		}
+
+		public void Print()
+		{
+			ThrowIfNotInitialized();
+			Native.ggml_graph_print(this);
 		}
 
 	}

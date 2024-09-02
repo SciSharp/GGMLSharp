@@ -56,11 +56,11 @@ namespace Converter
 
 			if (!writeToFileUsingStream)
 			{
-				ggufContext.Save(outputFileName, false);
+				ggufContext.WriteToFile(outputFileName, false);
 			}
 			else
 			{
-				ggufContext.Save(outputFileName, true);
+				ggufContext.WriteToFile(outputFileName, true);
 
 				byte[] bytes = File.ReadAllBytes(outputFileName);
 				ulong totalSize = 0;

@@ -24,7 +24,7 @@ namespace SAM
 			{
 				IouThreshold = 0.9f,
 				StabilityScoreThreshold = 0.9f,
-				Point = new PointF(248.0f, 162.0f),
+				Point = new PointF(274.0f, 244.0f),
 				ModelPath = @"./Assets/sam_vit_b_01ec64.pth",
 				ImageInputPath = @"./Assets/example.jpg",
 				Threads = 16,
@@ -408,7 +408,7 @@ namespace SAM
 
 			for (int i = ie0; i < ie1; ++i)
 			{
-				dst.SetFloat(i, (float)Math.Sin(src_data[i]));
+				dst.SetData((float)Math.Sin(src_data[i]), i);
 			}
 
 		}
@@ -441,7 +441,7 @@ namespace SAM
 
 			for (int i = ie0; i < ie1; ++i)
 			{
-				dst.SetFloat(i, (float)Math.Cos(src_data[i]));
+				dst.SetData((float)Math.Cos(src_data[i]), i);
 			}
 		}
 
@@ -1294,7 +1294,7 @@ namespace SAM
 				// norm
 				// ref: https://github.com/facebookresearch/segment-anything/blob/main/segment_anything/modeling/image_encoder.py#L168
 				{
-					cur = ctx0.Normal(inpL, hparams.Eps);
+					cur = ctx0.Norm(inpL, hparams.Eps);
 
 					// cur = ln_0_w*cur + ln_0_b
 					cur = ctx0.Mul(cur, layer.norm1_w);
@@ -1392,7 +1392,7 @@ namespace SAM
 				{
 					// norm
 					{
-						cur = ctx0.Normal(inpFF, hparams.Eps);
+						cur = ctx0.Norm(inpFF, hparams.Eps);
 
 						// cur = mlp_ln_w*cur + mlp_ln_b
 						cur = ctx0.Mul(cur, layer.norm2_w);

@@ -156,8 +156,8 @@ namespace GGMLSharp
 				public int Iter;
 
 				public float Sched; // schedule multiplier (fixed, Decay or warmup)
-				public float Decay; // weight Decay for AdamW, use 0.0f to disable
-				public int DecayMinDim; // minimum number of tensor dimension to apply weight Decay
+				public float Decay; // Weight Decay for AdamW, use 0.0f to disable
+				public int DecayMinDim; // minimum number of tensor dimension to apply Weight Decay
 				public float Alpha; // learning rate
 				public float Beta1;
 				public float Beta2;

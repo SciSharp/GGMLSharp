@@ -11,7 +11,6 @@ using int64_t = System.Int64;
 using int8_t = System.SByte;
 using size_t = System.UInt64;
 using uint16_t = System.UInt16;
-using uint32_t = System.UInt32;
 using uint64_t = System.UInt64;
 using uint8_t = System.Byte;
 
@@ -19,7 +18,7 @@ namespace GGMLSharp
 {
 	internal unsafe class Native
 	{
-		const string DllName = "ggml";
+		public const string DllName = "ggml";
 
 		#region ggml.h
 
@@ -180,7 +179,19 @@ namespace GGMLSharp
 		public extern static int ggml_n_dims(SafeGGmlTensor tensor); // returns 1 for scalars
 
 		[DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
+		public extern static bool ggml_is_contiguous_0(SafeGGmlTensor tensor); // same as ggml_is_contiguous()
+
+		[DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
+		public extern static bool ggml_is_contiguous_1(SafeGGmlTensor tensor); // contiguous for dims >= 1
+
+		[DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
+		public extern static bool ggml_is_contiguous_2(SafeGGmlTensor tensor); // contiguous for dims >= 2
+
+		[DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
 		public extern static bool ggml_are_same_shape(SafeGGmlTensor t0, SafeGGmlTensor t1);
+
+		[DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
+		public extern static bool ggml_are_same_stride(SafeGGmlTensor t0, SafeGGmlTensor t1);
 
 		/// <summary>
 		/// use this to compute the memory overhead of a tensor
@@ -450,7 +461,8 @@ namespace GGMLSharp
 		/// <param name="b"></param>
 		/// <returns></returns>
 		[DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-		public extern static SafeGGmlTensor ggml_concat(SafeGGmlContext ctx, SafeGGmlTensor a, SafeGGmlTensor b);
+		public extern static SafeGGmlTensor ggml_concat(SafeGGmlContext ctx, SafeGGmlTensor a, SafeGGmlTensor b, int dim);
+
 
 		[DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
 		public extern static SafeGGmlTensor ggml_abs(SafeGGmlContext ctx, SafeGGmlTensor a);
@@ -960,7 +972,7 @@ namespace GGMLSharp
 		//
 		// b is an int32 vector with size a->ne[2], it contains the positions
 		[DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-		public extern static SafeGGmlTensor ggml_rope(SafeGGmlContext ctx, SafeGGmlTensor a, SafeGGmlTensor b, int n_dims, int mode, int n_ctx);
+		public extern static SafeGGmlTensor ggml_rope(SafeGGmlContext ctx, SafeGGmlTensor a, SafeGGmlTensor b, int n_dims, int mode);
 
 		/// <summary>
 		/// in-place, returns view(a)
@@ -973,7 +985,14 @@ namespace GGMLSharp
 		/// <param name="n_ctx"></param>
 		/// <returns></returns>
 		[DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-		public extern static SafeGGmlTensor ggml_rope_inplace(SafeGGmlContext ctx, SafeGGmlTensor a, SafeGGmlTensor b, int n_dims, int mode, int n_ctx);
+		public extern static SafeGGmlTensor ggml_rope_inplace(SafeGGmlContext ctx, SafeGGmlTensor a, SafeGGmlTensor b, int n_dims, int mode);
+
+		[DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
+		public extern static SafeGGmlTensor ggml_rope_ext(SafeGGmlContext ctx, SafeGGmlTensor a, SafeGGmlTensor b, SafeGGmlTensor c, int n_dims, int mode, int n_orig_ctx, float freq_base, float freq_scale, float ext_factor, float attn_factor, float beta_fast, float beta_slow);
+
+		// in-place, returns view(a)
+		[DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
+		public extern static SafeGGmlTensor ggml_rope_ext_inplace(SafeGGmlContext ctx, SafeGGmlTensor a, SafeGGmlTensor b, SafeGGmlTensor c, int n_dims, int mode, int n_orig_ctx, float freq_base, float freq_scale, float ext_factor, float attn_factor, float beta_fast, float beta_slow);
 
 		/// <summary>
 		/// custom RoPE
@@ -983,7 +1002,6 @@ namespace GGMLSharp
 		/// <param name="b"></param>
 		/// <param name="n_dims"></param>
 		/// <param name="mode"></param>
-		/// <param name="n_ctx"></param>
 		/// <param name="n_orig_ctx"></param>
 		/// <param name="freq_base"></param>
 		/// <param name="freq_scale"></param>
@@ -993,7 +1011,7 @@ namespace GGMLSharp
 		/// <param name="beta_slow"></param>
 		/// <returns></returns>
 		[DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-		public extern static SafeGGmlTensor ggml_rope_custom(SafeGGmlContext ctx, SafeGGmlTensor a, SafeGGmlTensor b, int n_dims, int mode, int n_ctx, int n_orig_ctx, float freq_base, float freq_scale, float ext_factor, float attn_factor, float beta_fast, float beta_slow);
+		public extern static SafeGGmlTensor ggml_rope_custom(SafeGGmlContext ctx, SafeGGmlTensor a, SafeGGmlTensor b, int n_dims, int mode, int n_orig_ctx, float freq_base, float freq_scale, float ext_factor, float attn_factor, float beta_fast, float beta_slow);
 
 		/// <summary>
 		/// in-place, returns view(a)
@@ -1003,7 +1021,6 @@ namespace GGMLSharp
 		/// <param name="b"></param>
 		/// <param name="n_dims"></param>
 		/// <param name="mode"></param>
-		/// <param name="n_ctx"></param>
 		/// <param name="n_orig_ctx"></param>
 		/// <param name="freq_base"></param>
 		/// <param name="freq_scale"></param>
@@ -1013,7 +1030,7 @@ namespace GGMLSharp
 		/// <param name="beta_slow"></param>
 		/// <returns></returns>
 		[DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-		public extern static SafeGGmlTensor ggml_rope_custom_inplace(SafeGGmlContext ctx, SafeGGmlTensor a, SafeGGmlTensor b, int n_dims, int mode, int n_ctx, int n_orig_ctx, float freq_base, float freq_scale, float ext_factor, float attn_factor, float beta_fast, float beta_slow);
+		public extern static SafeGGmlTensor ggml_rope_custom_inplace(SafeGGmlContext ctx, SafeGGmlTensor a, SafeGGmlTensor b, int n_dims, int mode, int n_orig_ctx, float freq_base, float freq_scale, float ext_factor, float attn_factor, float beta_fast, float beta_slow);
 
 		/// <summary>
 		/// compute correction dims for YaRN RoPE scaling
@@ -1043,7 +1060,7 @@ namespace GGMLSharp
 		// rotary position embedding backward, i.e compute dx from dy
 		// a - dy
 		[DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-		public extern static SafeGGmlTensor ggml_rope_back(SafeGGmlContext ctx, SafeGGmlTensor a, SafeGGmlTensor b, int n_dims, int mode, int n_ctx, int n_orig_ctx, float freq_base, float freq_scale, float ext_factor, float attn_factor, float beta_fast, float beta_slow, float xpos_base, bool xpos_down);
+		public extern static SafeGGmlTensor ggml_rope_back(SafeGGmlContext ctx, SafeGGmlTensor a, SafeGGmlTensor b, int n_dims, int mode, int n_orig_ctx, float freq_base, float freq_scale, float ext_factor, float attn_factor, float beta_fast, float beta_slow);
 
 		[DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
 		public extern static SafeGGmlTensor ggml_clamp(SafeGGmlContext ctx, SafeGGmlTensor a, float min, float max);
@@ -1150,6 +1167,7 @@ namespace GGMLSharp
 		[DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
 		public extern static SafeGGmlTensor ggml_top_k(SafeGGmlContext ctx, SafeGGmlTensor a, int k);
 
+		// This func has benn removed, please use ggml_flash_atten_ext.
 		[DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
 		public extern static SafeGGmlTensor ggml_flash_attn(SafeGGmlContext ctx, SafeGGmlTensor q, SafeGGmlTensor k, SafeGGmlTensor v, bool masked);
 
@@ -1159,7 +1177,7 @@ namespace GGMLSharp
 		/// <param name="ctx"></param>
 		/// <param name="q">[n_embd, n_batch, n_head, 1]</param>
 		/// <param name="k">[n_embd, n_kv, n_head_kv, 1]</param>
-		/// <param name="v"></param>
+		/// <param name="v">[n_embd, n_kv, n_head_kv, 1]</param>
 		/// <param name="mask">[n_kv, n_batch_pad, 1, 1] !! n_batch_pad = GGML_PAD(n_batch, GGML_KQ_MASK_PAD) !!</param>
 		/// <param name="scale">[n_embd, n_head, n_batch, 1] !! permuted !!</param>
 		/// <returns></returns>
@@ -1323,6 +1341,10 @@ namespace GGMLSharp
 		[DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
 		public extern static void ggml_build_backward_gradient_checkpointing(SafeGGmlContext ctx, SafeGGmlGraph gf, SafeGGmlGraph gb, SafeGGmlGraph gb_tmp, ggml_tensor** checkpoints, int n_checkpoints);
 
+		[DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
+		public extern static void ggml_build_backward_gradient_checkpointing(SafeGGmlContext ctx, SafeGGmlGraph gf, SafeGGmlGraph gb, SafeGGmlGraph gb_tmp, SafeGGmlTensor[] checkpoints, int n_checkpoints);
+
+
 		public delegate void ggml_opt_callback(void* data, int accum_step, float* sched, bool* cancel);
 		public delegate void ggml_log_callback(ggml_log_level level, string text, void* user_data);
 
@@ -1339,15 +1361,15 @@ namespace GGMLSharp
 
 		// initialize optimizer context
 		[DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-		public extern static void ggml_opt_init(SafeGGmlContext ctx, ggml_opt_context* opt, ggml_opt_params @params, int64_t nx);
+		public extern static void ggml_opt_init(SafeGGmlContext ctx, SafeGGmlOptContext opt, ggml_opt_params @params, int64_t nx);
 
 		// continue optimizing the function defined by the tensor f
 		[DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-		public extern static ggml_opt_result ggml_opt_resume(SafeGGmlContext ctx, ggml_opt_context* opt, SafeGGmlTensor f);
+		public extern static ggml_opt_result ggml_opt_resume(SafeGGmlContext ctx, SafeGGmlOptContext opt, SafeGGmlTensor f);
 
 		// continue optimizing the function defined by the tensor f
 		[DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-		public extern static ggml_opt_result ggml_opt_resume_g(SafeGGmlContext ctx, ggml_opt_context* opt, SafeGGmlTensor f, SafeGGmlGraph gf, SafeGGmlGraph gb, ggml_opt_callback callback, void* callback_data);
+		public extern static ggml_opt_result ggml_opt_resume_g(SafeGGmlContext ctx, SafeGGmlOptContext opt, SafeGGmlTensor f, SafeGGmlGraph gf, SafeGGmlGraph gb, ggml_opt_callback callback, void* callback_data);
 
 		//
 		// tensor flags
@@ -1467,7 +1489,7 @@ namespace GGMLSharp
 		public extern static int16_t gguf_get_val_i16(SafeGGufContext ctx, int key_id);
 
 		[DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-		public extern static uint32_t gguf_get_val_u32(SafeGGufContext ctx, int key_id);
+		public extern static uint gguf_get_val_u32(SafeGGufContext ctx, int key_id);
 
 		[DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
 		public extern static int32_t gguf_get_val_i32(SafeGGufContext ctx, int key_id);
@@ -1528,7 +1550,7 @@ namespace GGMLSharp
 		public extern static void gguf_set_val_i16(SafeGGufContext ctx, string key, int16_t val);
 
 		[DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-		public extern static void gguf_set_val_u32(SafeGGufContext ctx, string key, uint32_t val);
+		public extern static void gguf_set_val_u32(SafeGGufContext ctx, string key, uint val);
 
 		[DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
 		public extern static void gguf_set_val_i32(SafeGGufContext ctx, string key, int32_t val);
@@ -1606,6 +1628,9 @@ namespace GGMLSharp
 		public extern static bool ggml_cpu_has_avx512_bf16();
 
 		[DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
+		public extern static bool ggml_cpu_has_sve();
+
+		[DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
 		public extern static bool ggml_cpu_has_fma();
 
 		[DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
@@ -1643,6 +1668,9 @@ namespace GGMLSharp
 
 		[DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
 		public extern static bool ggml_cpu_has_sycl();
+
+		[DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
+		public extern static bool ggml_cpu_has_rpc();
 
 		[DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
 		public extern static bool ggml_cpu_has_gpublas();
@@ -2026,7 +2054,11 @@ namespace GGMLSharp
 		[DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
 		public extern static void ggml_backend_view_init(SafeGGmlBackendBuffer buffer, SafeGGmlTensor tensor);
 
+		[DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
+		public extern static int ggml_backend_sched_get_n_backends(IntPtr sched);
 
+		[DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
+		public extern static SafeGGmlBackend ggml_backend_sched_get_backend(IntPtr sched, int i);
 
 		#endregion
 

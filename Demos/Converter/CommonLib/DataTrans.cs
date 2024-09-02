@@ -6,22 +6,22 @@ namespace Converter.CommonLib
 	{
 		internal static string TensorNameTransToGgufName(string inputTensorName)
 		{
-			if (inputTensorName == "lm_head.weight")
+			if (inputTensorName == "lm_head.Weight")
 			{
-				return "output.weight";
+				return "output.Weight";
 			}
-			else if (inputTensorName == "model.embed_tokens.weight")
+			else if (inputTensorName == "model.embed_tokens.Weight")
 			{
-				return "token_embd.weight";
+				return "token_embd.Weight";
 			}
-			else if (inputTensorName == "model.norm.weight")
+			else if (inputTensorName == "model.norm.Weight")
 			{
-				return "output_norm.weight";
+				return "output_norm.Weight";
 			}
-			else if (Regex.IsMatch(inputTensorName, @"model.layers.(\d+).input_layernorm.weight"))
+			else if (Regex.IsMatch(inputTensorName, @"model.layers.(\d+).input_layernorm.Weight"))
 			{
-				string num = new Regex(@"model.layers.(\d+).input_layernorm.weight").Match(inputTensorName).Groups[1].Value;
-				return $"blk.{num}.attn_norm.weight";
+				string num = new Regex(@"model.layers.(\d+).input_layernorm.Weight").Match(inputTensorName).Groups[1].Value;
+				return $"blk.{num}.attn_norm.Weight";
 			}
 			else if (Regex.IsMatch(inputTensorName, @"model.layers.(\d+).mlp.(\w+)_proj.(\w+)"))
 			{

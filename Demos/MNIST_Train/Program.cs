@@ -49,10 +49,10 @@ namespace MNIST_Train
 
 			float rnd_max = 0.1f;
 			float rnd_min = -0.1f;
-			fc1Weight.GetRandomTensorInFloat(rnd_max, rnd_min);
-			fc1Bias.GetRandomTensorInFloat(rnd_max, rnd_min);
-			fc2Weight.GetRandomTensorInFloat(rnd_max, rnd_min);
-			fc2Bias.GetRandomTensorInFloat(rnd_max, rnd_min);
+			fc1Weight.SetRandomTensorInFloat(rnd_max, rnd_min);
+			fc1Bias.SetRandomTensorInFloat(rnd_max, rnd_min);
+			fc2Weight.SetRandomTensorInFloat(rnd_max, rnd_min);
+			fc2Bias.SetRandomTensorInFloat(rnd_max, rnd_min);
 
 			for (int loop = 0; loop < lp; loop++)
 			{
@@ -72,7 +72,7 @@ namespace MNIST_Train
 					OptimizerParameters opt_params = SafeGGmlContext.GetDefaultOptimizerParams(Structs. OptimizerType.ADAM);
 					opt_params.PrintBackwardGraph = Convert.ToByte(false);
 					opt_params.PrintForwarGraph = Convert.ToByte(false);
-
+				
 					Structs.OptimizationResult result = SafeGGmlContext.OptimizerWithDefaultGGmlContext(opt_params, loss);
 					Console.WriteLine("loop: {0,3}, setp {1,3} label: {2}, prediction: {3}, match:{4}, loss: {5},", loop, step, datas[step].label, index, datas[step].label == index, ls0);
 				}
@@ -84,7 +84,7 @@ namespace MNIST_Train
 			gguf.AddTensor(fc1Bias);
 			gguf.AddTensor(fc2Weight);
 			gguf.AddTensor(fc2Bias);
-			gguf.Save("mnist_train.gguf", false);
+			gguf.WriteToFile("mnist_train.gguf", false);
 			gguf.Free();
 
 			Console.WriteLine("Model saved, testing model......");

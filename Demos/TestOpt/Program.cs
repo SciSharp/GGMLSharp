@@ -17,9 +17,9 @@ namespace TestOpt
 			SafeGGmlTensor a = new SafeGGmlTensor(ctx, Structs.GGmlType.GGML_TYPE_F32, ne1);
 			SafeGGmlTensor b = new SafeGGmlTensor(ctx, Structs.GGmlType.GGML_TYPE_F32, ne2);
 			SafeGGmlTensor c = new SafeGGmlTensor(ctx, Structs.GGmlType.GGML_TYPE_F32, ne3);
-			a.GetRandomTensorInFloat(-1.0f, 1.0f);
-			b.GetRandomTensorInFloat(-1.0f, 1.0f);
-			c.GetRandomTensorInFloat(-1.0f, 1.0f);
+			a.SetRandomTensorInFloat(-1.0f, 1.0f);
+			b.SetRandomTensorInFloat(-1.0f, 1.0f);
+			c.SetRandomTensorInFloat(-1.0f, 1.0f);
 
 			ctx.SetParam(a);
 			ctx.SetParam(b);

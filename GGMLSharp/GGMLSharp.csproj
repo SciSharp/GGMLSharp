@@ -46,6 +46,7 @@
   <ItemGroup>
     <Compile Include="Common.cs" />
     <Compile Include="DataConverter.cs" />
+    <Compile Include="Modules.cs" />
     <Compile Include="Native.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="SafeGGmlBackend.cs" />
@@ -62,6 +63,7 @@
     <Compile Include="SafeGGufKeyValue.cs" />
     <Compile Include="SafeGGufTensorInfo.cs" />
     <Compile Include="InternalStructs.cs" />
+    <Compile Include="SafeGGmlOptContext.cs" />
     <Compile Include="Structs.cs" />
   </ItemGroup>
   <ItemGroup>

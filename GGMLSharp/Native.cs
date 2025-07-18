@@ -20,7 +20,7 @@ namespace GGMLSharp
 {
     internal unsafe class Native
     {
-		public const string DllName = "ggml";
+		public const string DllName = "libggml";
 
         #region ggml.h
 

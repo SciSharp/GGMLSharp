@@ -52,3 +52,17 @@ GGMLSharp contains all ggml shared libs and some demos.
 ### Yolov3Tiny
 
 [Yolov3Tiny](./Demos/Yolov3Tiny/) is a Demo shows how to implement YOLO object detection with ggml using pretrained model. The weight have been converted to gguf.
+
+## Library compilation
+
+Supported targets:
+- Win x64/arm64
+- Linux x64/arm64
+
+to compile the shared `ggml` libraries yourself, just run:
+
+```bash
+bash GGMLSharp/build/build.sh 
+```
+
+from the root repo directory.

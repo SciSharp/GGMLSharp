@@ -44,6 +44,7 @@ RUN echo "set(CMAKE_SYSTEM_NAME Windows)" > ${TOOLCHAIN_FILE} && \
 RUN cmake .. \
     -DCMAKE_TOOLCHAIN_FILE=${TOOLCHAIN_FILE} \
     -DGGML_BUILD_TESTS=OFF \
+    -DGGML_OPENMP=OFF \
     -DBUILD_SHARED_LIBS=ON
 
 RUN cmake --build . --config Release -j $(nproc)
@@ -63,6 +64,7 @@ RUN echo "set(CMAKE_SYSTEM_NAME Windows)" > ${TOOLCHAIN_FILE} && \
 RUN cmake .. \
     -DCMAKE_TOOLCHAIN_FILE=${TOOLCHAIN_FILE} \
     -DBUILD_SHARED_LIBS=ON \
+    -DGGML_OPENMP=OFF \
     -DGGML_BUILD_TESTS=OFF
 
 RUN cmake --build . --config Release -j $(nproc)
@@ -71,6 +73,7 @@ FROM base AS linux-x64-builder
 
 RUN cmake .. \
     -DBUILD_SHARED_LIBS=ON \
+    -DGGML_OPENMP=OFF \
     -DGGML_BUILD_TESTS=OFF
 
 RUN cmake --build . --config Release -j $(nproc)

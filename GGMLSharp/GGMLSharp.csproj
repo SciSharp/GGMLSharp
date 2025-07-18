@@ -66,10 +66,27 @@
     <Compile Include="SafeGGmlOptContext.cs" />
     <Compile Include="Structs.cs" />
   </ItemGroup>
-  <ItemGroup>
-    <Content Include="ggml.dll">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
+
+  <ItemGroup Condition="$([MSBuild]::IsOSPlatform('Windows')) and '$([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture)' == 'X64'">
+    <Content Include="runtimes\win-x64\native\*.dll" Pack="false" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
+
+  <ItemGroup Condition="$([MSBuild]::IsOSPlatform('Windows')) and '$([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture)' == 'Arm64'">
+    <Content Include="runtimes\win-arm64\native\*.dll" Pack="false" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup Condition="$([MSBuild]::IsOSPlatform('Linux')) and '$([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture)' == 'X64'">
+    <Content Include="runtimes\linux-x64\native\*.so" Pack="false" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup Condition="$([MSBuild]::IsOSPlatform('Linux')) and '$([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture)' == 'Arm64'">
+    <Content Include="runtimes\linux-arm64\native\*.so" Pack="false" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <!-- For NuGet packaging we package all runtimes -->
+  <ItemGroup>
+    <None Include="runtimes\**\*" Pack="true" PackagePath="runtimes\" />
+  </ItemGroup>
+  
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

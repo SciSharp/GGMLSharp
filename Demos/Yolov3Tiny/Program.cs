@@ -1,11 +1,5 @@
 ﻿using GGMLSharp;
-using System;
-using System.Collections.Generic;
-using System.Drawing;
-using System.Drawing.Imaging;
-using System.IO;
-using System.Linq;
-using System.Runtime.InteropServices;
+using SkiaSharp;
 
 namespace Yolov3Tiny
 {
@@ -13,10 +7,10 @@ namespace Yolov3Tiny
 	{
 		static void Main(string[] args)
 		{
-			string modelPath = @".\Assets\yolov3-tiny.gguf";
-			string inputImgPath = @".\Assets\test.jpg";
-			string outputImgPath = @".\output.jpg";
-			string labelPath = @".\Assets\coco.names";
+			string modelPath = "./Assets/yolov3-tiny.gguf";
+			string inputImgPath = "./Assets/test.jpg";
+			string outputImgPath = "./output.jpg";
+			string labelPath = "./Assets/coco.names";
 
 			int modelWidth = 416;
 			int modelHeight = 416;
@@ -30,24 +24,24 @@ namespace Yolov3Tiny
 
 			YoloModel model = LoadModel(modelPath);
 
-			Bitmap inputImg = new Bitmap(inputImgPath);
-			Bitmap resizedImg = ResizeImage(inputImg, modelWidth, modelHeight, out float ratio);
+			using SKBitmap inputImg = SKBitmap.Decode(inputImgPath);
+			using SKBitmap resizedImg = ResizeImage(inputImg, modelWidth, modelHeight, out float ratio);
 
-			BitmapData bitmapData = resizedImg.LockBits(new Rectangle(0, 0, resizedImg.Width, resizedImg.Height), ImageLockMode.ReadOnly, resizedImg.PixelFormat);
-			byte[] data = new byte[3 * modelWidth * modelHeight];
-			Marshal.Copy(bitmapData.Scan0, data, 0, data.Length);
-			SafeGGmlTensor input = ctx0.NewTensor4d(Structs.GGmlType.GGML_TYPE_F32, modelWidth, modelHeight, 3, 1);
+			// --- SkiaSharp Pixel Access ---
+			byte[] data = resizedImg.Bytes;
+			using SafeGGmlTensor input = ctx0.NewTensor4d(Structs.GGmlType.GGML_TYPE_F32, modelWidth, modelHeight, 3, 1);
 			input.Name = "input";
-			for (int w = 0; w < modelWidth; w++)
+
+			for (int y = 0; y < modelHeight; y++)
 			{
-				for (int h = 0; h < modelHeight; h++)
+				for (int x = 0; x < modelWidth; x++)
 				{
-					input.SetData(data[bitmapData.Stride * h + w * 3 + 2] / 255.0f, w, h, 0, 0);
-					input.SetData(data[bitmapData.Stride * h + w * 3 + 1] / 255.0f, w, h, 1, 0);
-					input.SetData(data[bitmapData.Stride * h + w * 3 + 0] / 255.0f, w, h, 2, 0);
+					var pixelIndex = (y * resizedImg.Width + x) * resizedImg.BytesPerPixel;
+					input.SetData(data[pixelIndex + 2] / 255.0f, x, y, 0, 0); // R
+					input.SetData(data[pixelIndex + 1] / 255.0f, x, y, 1, 0); // G
+					input.SetData(data[pixelIndex + 0] / 255.0f, x, y, 2, 0); // B
 				}
 			}
-			resizedImg.UnlockBits(bitmapData);
 
 			SafeGGmlTensor result = ApplyConv2d(ctx0, input, model.Conv2dLayers[0]);
 			PrintShape(0, result);
@@ -120,33 +114,40 @@ namespace Yolov3Tiny
 
 			Console.WriteLine();
 
-			using (Graphics g = Graphics.FromImage(inputImg))
+			using (SKCanvas canvas = new SKCanvas(inputImg))
 			{
 				int d = Math.Abs(inputImg.Width - inputImg.Height) / 2;
 				bool wIsLonger = inputImg.Width.CompareTo(inputImg.Height) > 0;
 
 				foreach (Detection detection in detections)
 				{
-
 					int w = (int)(detection.BBox.W * resizedImg.Width / ratio);
 					int h = (int)(detection.BBox.H * resizedImg.Height / ratio);
 					int x = (int)(detection.BBox.X * resizedImg.Width / ratio - w / 2) - (wIsLonger ? 0 : d);
 					int y = (int)(detection.BBox.Y * resizedImg.Height / ratio - h / 2) - (wIsLonger ? d : 0);
-					Rectangle rect = new Rectangle(x, y, w, h);
-					g.DrawRectangle(Pens.Red, rect);
+					var rect = new SKRect(x, y, x + w, y + h);
+
+					using (var paint = new SKPaint { Color = SKColors.Red, Style = SKPaintStyle.Stroke, StrokeWidth = 2 })
+					{
+						canvas.DrawRect(rect, paint);
+					}
 
 					int index = detection.Prob.ToList().IndexOf(detection.Prob.Max());
 					string str = labels[index] + "  " + (detection.Objectness * 100).ToString("f2") + "%";
-					SolidBrush redBrush = new SolidBrush(Color.Red);
-					Font font = new Font("Arial", 16);
-					g.DrawString(str, font, redBrush, x, y);
-					g.Save();
+					using (var textPaint = new SKPaint { Color = SKColors.Red, TextSize = 16 })
+					{
+						canvas.DrawText(str, x, y - 5, textPaint);
+					}
+
 					Console.WriteLine(string.Format("Detect: " + str));
 				}
 			}
 
 			Console.WriteLine();
-			inputImg.Save(outputImgPath);
+			using (var stream = File.OpenWrite(outputImgPath))
+			{
+				inputImg.Encode(stream, SKEncodedImageFormat.Jpeg, 100);
+			}
 			Console.WriteLine("Done.");
 			Console.ReadLine();
 		}
@@ -195,27 +196,25 @@ namespace Yolov3Tiny
 			Console.WriteLine(string.Format("Layer {0} output shape:  {1} x {2} x {3} x {4}", layer, (int)t.Shape[0], (int)t.Shape[1], (int)t.Shape[2], (int)t.Shape[3]));
 		}
 
-		public static Bitmap ResizeImage(Bitmap image, int targetWidth, int targetHeight, out float ratio)
+		public static SKBitmap ResizeImage(SKBitmap image, int targetWidth, int targetHeight, out float ratio)
 		{
-			PixelFormat format = image.PixelFormat;
-			Bitmap output = new Bitmap(targetWidth, targetHeight, format);
-			int w = image.Width;
-			int h = image.Height;
-			float xRatio = targetWidth / (float)w;
-			float yRatio = targetHeight / (float)h;
+			var outputInfo = new SKImageInfo(targetWidth, targetHeight);
+			var output = new SKBitmap(outputInfo);
+
+			float xRatio = targetWidth / (float)image.Width;
+			float yRatio = targetHeight / (float)image.Height;
 			ratio = Math.Min(xRatio, yRatio);
-			int width = (int)(w * ratio);
-			int height = (int)(h * ratio);
+
+			int width = (int)(image.Width * ratio);
+			int height = (int)(image.Height * ratio);
 			int x = targetWidth / 2 - width / 2;
 			int y = targetHeight / 2 - height / 2;
-			Rectangle roi = new Rectangle(x, y, width, height);
-			using (Graphics graphics = Graphics.FromImage(output))
+			var roi = new SKRect(x, y, x + width, y + height);
+
+			using (var canvas = new SKCanvas(output))
 			{
-				graphics.Clear(Color.Black);
-				graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.None;
-				graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.Bilinear;
-				graphics.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.Half;
-				graphics.DrawImage(image, roi);
+				canvas.Clear(SKColors.Black);
+				canvas.DrawBitmap(image, roi);
 			}
 			return output;
 		}
@@ -417,23 +416,19 @@ namespace Yolov3Tiny
 				return 0;
 			}
 
-			Rectangle a = new Rectangle((int)(detA.BBox.X * 100), (int)(detA.BBox.Y * 100), (int)(detA.BBox.W * 100), (int)(detA.BBox.H * 100));
-			Rectangle b = new Rectangle((int)(detB.BBox.X * 100), (int)(detB.BBox.Y * 100), (int)(detB.BBox.W * 100), (int)(detB.BBox.H * 100));
+			// Use SKRect for intersection calculation
+			var a = new SKRect((int)(detA.BBox.X * 100), (int)(detA.BBox.Y * 100), (int)((detA.BBox.X + detA.BBox.W) * 100), (int)((detA.BBox.Y + detA.BBox.H) * 100));
+			var b = new SKRect((int)(detB.BBox.X * 100), (int)(detB.BBox.Y * 100), (int)((detB.BBox.X + detB.BBox.W) * 100), (int)((detB.BBox.Y + detB.BBox.H) * 100));
 
 			float areaA = a.Width * a.Height;
 			float areaB = b.Width * b.Height;
 			float area = Math.Min(areaA, areaB);
+			if (area == 0) return 0;
 
-			a.Intersect(b);
-			float ins = a.Width * a.Height / area;
-			if (float.IsNaN(ins))
-			{
-				return 0;
-			}
-			else
-			{
-				return ins;
-			}
+			var intersection = SKRect.Intersect(a, b);
+			float ins = intersection.Width * intersection.Height / area;
+
+			return float.IsNaN(ins) ? 0 : ins;
 		}
 
 	}

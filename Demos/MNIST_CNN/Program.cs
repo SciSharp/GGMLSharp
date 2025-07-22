@@ -1,8 +1,4 @@
 ﻿using GGMLSharp;
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using static GGMLSharp.Structs;
 
 namespace MNIST_CNN
@@ -11,8 +7,8 @@ namespace MNIST_CNN
 	{
 		static void Main(string[] args)
 		{
-			Model model = LoadModel(@".\Assets\mnist-cnn-model.gguf");
-			byte[] bytes = File.ReadAllBytes(@".\Assets\image.raw");
+			Model model = LoadModel("./Assets/mnist-cnn-model.gguf");
+			byte[] bytes = File.ReadAllBytes("./Assets/image.raw");
 			Console.WriteLine("The image is:");
 			for (int i = 0; i < 28; i++)
 			{

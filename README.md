@@ -1,6 +1,6 @@
 # GGMLSharp Introduction
 
-GGMLSharp is a API for C# to use [ggml](https://github.com/ggerganov/ggml).</br>
+GGMLSharp is an API for C# to use [ggml](https://github.com/ggerganov/ggml).</br>
 ggml is a wonderful C-language machine-learning tool, and now you can use it with C#.</br>
 GGMLSharp contains all ggml shared libs and some demos. 
 
@@ -8,7 +8,6 @@ GGMLSharp contains all ggml shared libs and some demos.
 
 - Written in C# only
 - Only depends on ggml
-- DotNet 462 Support!
 - All Demos can use safe code only!
 
 ## Demos

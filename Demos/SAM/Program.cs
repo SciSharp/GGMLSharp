@@ -1,11 +1,6 @@
 ﻿using GGMLSharp;
 using ModelLoader;
-using System;
-using System.Collections.Generic;
-using System.Drawing;
-using System.Drawing.Imaging;
-using System.IO;
-using System.Linq;
+using SkiaSharp;
 using System.Runtime.InteropServices;
 using static GGMLSharp.Structs;
 
@@ -24,7 +19,7 @@ namespace SAM
 			{
 				IouThreshold = 0.9f,
 				StabilityScoreThreshold = 0.9f,
-				Point = new PointF(274.0f, 244.0f),
+				Point = new SKPoint(274.0f, 244.0f),
 				ModelPath = @"./Assets/sam_vit_b_01ec64.pth",
 				ImageInputPath = @"./Assets/example.jpg",
 				Threads = 16,
@@ -361,7 +356,7 @@ namespace SAM
 			public float StabilityScoreOffset = 1.0f;
 			public float Eps = 1e-6f;
 			public float EpsDecoderTransformer = 1e-5f;
-			public PointF Point = new PointF(414.375f, 162.796875f);
+			public SKPoint Point = new SKPoint(414.375f, 162.796875f);
 		};
 
 		static void DisconnectNodeFromGraph(SafeGGmlTensor t)
@@ -376,7 +371,7 @@ namespace SAM
 		static void GraphComputeHelper(SafeGGmlGraph graph, int threads)
 		{
 			ulong mem_size = Common.TensorOverheadLength * Structs.GGML_DEFAULT_GRAPH_SIZE * (ulong)graph.NodeCount + Common.GraphOverheadLength;
-			SafeGGmlContext context = new SafeGGmlContext(IntPtr.Zero, mem_size, false);
+			using SafeGGmlContext context = new SafeGGmlContext(IntPtr.Zero, mem_size, false);
 			graph.ComputeWithGGmlContext(context, threads);
 		}
 
@@ -447,15 +442,55 @@ namespace SAM
 
 		static SamImageU8 LoadImageFromFile(string fname)
 		{
-			Bitmap bitmap = new Bitmap(fname);
+			using var bitmap = SKBitmap.Decode(fname);
+			if (bitmap == null)
+			{
+				throw new FileNotFoundException("Failed to load image", fname);
+			}
+
+			// Ensure the bitmap is in a known 8-bit format, like Rgba8888 or Bgra8888
+			if (bitmap.ColorType != SKColorType.Rgba8888 && bitmap.ColorType != SKColorType.Bgra8888)
+			{
+				// Convert to a usable format if necessary
+				var temp = new SKBitmap(bitmap.Width, bitmap.Height, SKColorType.Rgba8888, SKAlphaType.Opaque);
+				using var canvas = new SKCanvas(temp);
+				canvas.DrawBitmap(bitmap, 0, 0);
+				bitmap.Dispose();
+			}
+			var currentBitmap = bitmap.ColorType == SKColorType.Rgba8888 || bitmap.ColorType == SKColorType.Bgra8888 ? bitmap : null;
+			if (currentBitmap == null)
+			{
+				// This block is a fallback in case the original bitmap was not in the expected format
+				using var temp = new SKBitmap(bitmap.Width, bitmap.Height, SKColorType.Rgba8888, SKAlphaType.Opaque);
+				using (var canvas = new SKCanvas(temp))
+				{
+					canvas.DrawBitmap(bitmap, 0, 0);
+				}
+				currentBitmap = temp;
+			}
+
+
 			SamImageU8 img = new SamImageU8();
-			img.Width = bitmap.Width;
-			img.Height = bitmap.Height;
+			img.Width = currentBitmap.Width;
+			img.Height = currentBitmap.Height;
 			img.Data = new byte[img.Width * img.Height * 3];
 
-			BitmapData bitmapData = bitmap.LockBits(new Rectangle(0, 0, bitmap.Width, bitmap.Height), ImageLockMode.ReadOnly, PixelFormat.Format24bppRgb);
-			Marshal.Copy(bitmapData.Scan0, img.Data, 0, img.Data.Length);
-			bitmap.UnlockBits(bitmapData);
+			var pixels = currentBitmap.Pixels;
+			int pixelIndex = 0;
+			for (int y = 0; y < img.Height; y++)
+			{
+				for (int x = 0; x < img.Width; x++)
+				{
+					var color = pixels[y * img.Width + x];
+					int dataIndex = (y * img.Width + x) * 3;
+					img.Data[dataIndex + 0] = color.Red;   // R
+					img.Data[dataIndex + 1] = color.Green; // G
+					img.Data[dataIndex + 2] = color.Blue;  // B
+				}
+			}
+
+			if (currentBitmap != bitmap) currentBitmap.Dispose();
+
 			return img;
 		}
 
@@ -1163,7 +1198,7 @@ namespace SAM
 			return true;
 		}
 
-		static SafeGGmlGraph SamBuildFastGraph(SamModel model, SamState state, int nx, int ny, PointF point)
+		static SafeGGmlGraph SamBuildFastGraph(SamModel model, SamState state, int nx, int ny, SKPoint point)
 		{
 			ulong size = Common.TensorOverheadLength * GGML_DEFAULT_GRAPH_SIZE + Common.GraphOverheadLength;
 			SafeGGmlContext ctx0 = new SafeGGmlContext(IntPtr.Zero, 1024 * 1024 * 1024, true);
@@ -1619,14 +1654,17 @@ namespace SAM
 
 				string filename = fname + i + ".png";
 
-				Bitmap bitmap = new Bitmap(res.Width, res.Height, PixelFormat.Format8bppIndexed);
-				BitmapData bitmapData = bitmap.LockBits(new Rectangle(0, 0, res.Width, res.Height), ImageLockMode.WriteOnly, PixelFormat.Format8bppIndexed);
-				Marshal.Copy(res.Data, 0, bitmapData.Scan0, res.Data.Length);
-				bitmap.UnlockBits(bitmapData);
-				bitmap.Save(filename, ImageFormat.Png);
+				var info = new SKImageInfo(res.Width, res.Height, SKColorType.Gray8, SKAlphaType.Opaque);
+				using var bitmap = new SKBitmap(info);
+
+				var pixelPtr = bitmap.GetPixels();
+				Marshal.Copy(res.Data, 0, pixelPtr, res.Data.Length);
+
+				using (var stream = File.OpenWrite(filename))
+				{
+					bitmap.Encode(stream, SKEncodedImageFormat.Png, 100);
+				}
 			}
-
-
 			return true;
 		}
 

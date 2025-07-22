@@ -1,8 +1,4 @@
 ﻿using GGMLSharp;
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using static GGMLSharp.Structs;
 
 namespace MNIST_Train
@@ -17,7 +13,7 @@ namespace MNIST_Train
 			// Step count
 			int sp = 300;
 
-			mnist_data[] datas = LoadData(@".\Assets\t10k-images.idx3-ubyte", @".\Assets\t10k-labels-idx1-ubyte");
+			mnist_data[] datas = LoadData("./Assets/t10k-images.idx3-ubyte", "./Assets/t10k-labels-idx1-ubyte");
 
 			SafeGGmlContext context = new SafeGGmlContext();
 
@@ -154,7 +150,7 @@ namespace MNIST_Train
 			SafeGGmlGraph gf = context.CustomNewGraph();
 			gf.BuildForwardExpend(probs);
 
-			mnist_data[] datas = LoadData(@".\Assets\t10k-images.idx3-ubyte", @".\Assets\t10k-labels-idx1-ubyte");
+			mnist_data[] datas = LoadData("./Assets/t10k-images.idx3-ubyte", "./Assets/t10k-labels-idx1-ubyte");
 
 			mnist_data data = datas[5008];
 			input.SetData(data.data);

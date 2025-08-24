@@ -1,6 +1,4 @@
-﻿using System.Collections.Generic;
-
-namespace ModelLoader
+﻿namespace ModelLoader
 {
 	public interface IModelLoader
 	{

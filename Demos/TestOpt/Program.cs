@@ -1,5 +1,4 @@
 ﻿using GGMLSharp;
-using System;
 using static GGMLSharp.Structs;
 
 namespace TestOpt

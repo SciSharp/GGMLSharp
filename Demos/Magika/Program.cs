@@ -1,8 +1,4 @@
 ﻿using GGMLSharp;
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 
 namespace Magika
 {
@@ -95,7 +91,7 @@ namespace Magika
 		private static MagikaModel LoadModel(string fname)
 		{
 			MagikaModel model = new MagikaModel();
-			SafeGGufContext ggufContext = SafeGGufContext.InitFromFile(@"./Assets/magika.gguf", model.context, true);
+			SafeGGufContext ggufContext = SafeGGufContext.InitFromFile("./Assets/magika.gguf", model.context, true);
 
 			model.backend = SafeGGmlBackend.CpuInit(); // init device 0
 
@@ -299,10 +295,10 @@ namespace Magika
 
 		static void Main(string[] args)
 		{
-			MagikaModel model = LoadModel(@".\Assets\magika.gguf");
+			MagikaModel model = LoadModel("./Assets/magika.gguf");
 			Console.WriteLine("Loaded model");
 
-			float[] result = Eval(model, @".\Assets\test");
+			float[] result = Eval(model, "./Assets/test");
 			List<result> results = new List<result>();
 			for (int i = 0; i < result.Length; i++)
 			{
